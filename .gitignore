@@ -7,3 +7,5 @@ dist/
 data/raw/
 data/cache/
 .pytest_cache/
+.serena/
+.pytest-temp/
