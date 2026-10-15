@@ -349,7 +349,7 @@ class GitHubGraphQLClient:
                 self._backoff(retries)
                 continue
 
-            if response.status_code in {502, 503}:
+            if response.status_code in {499, 502, 503, 504}:
                 if retries >= MAX_RETRIES:
                     raise GitHubFetchError(
                         f"GitHub GraphQL returned HTTP {response.status_code} after retries."

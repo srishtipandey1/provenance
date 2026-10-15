@@ -2,8 +2,11 @@ import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from provenance.ingest.github_prs import (
+    GitHubGraphQLClient,
     RawPageStore,
     filter_page_nodes,
     normalize_pull_request,
@@ -91,3 +94,31 @@ def test_resume_continues_cursor_and_deduplicates_replayed_prs() -> None:
     assert [record["number"] for record in page_lines[1]["pull_requests"]] == [102]
     assert resumed_store.state["cursor"] == "cursor-2"
     assert resumed_store.state["prs_seen"] == 2
+
+
+def test_gateway_499_retries_before_parsing_response() -> None:
+    retryable_response = Mock(status_code=499)
+    success_payload = {
+        "data": {
+            "repository": {"pullRequests": {"nodes": [], "pageInfo": {}}},
+            "rateLimit": {"cost": 2, "remaining": 1000, "resetAt": None},
+        }
+    }
+    successful_response = Mock(
+        status_code=200,
+        elapsed=SimpleNamespace(total_seconds=lambda: 0.1),
+        headers={},
+    )
+    successful_response.json.return_value = success_payload
+    client = GitHubGraphQLClient("test-token")
+
+    with patch.object(client.client, "post", side_effect=[retryable_response, successful_response]) as post:
+        with patch.object(client, "_backoff") as backoff:
+            data, page_size, elapsed = client.fetch_page(after=None, page_size=50)
+    client.close()
+
+    assert data == success_payload["data"]
+    assert page_size == 50
+    assert elapsed == 0.1
+    assert post.call_count == 2
+    backoff.assert_called_once_with(1)
