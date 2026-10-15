@@ -6,11 +6,24 @@ from uuid import uuid4
 from falkordb import FalkorDB
 
 from provenance.config import settings
-from provenance.eval.reviewer_eval_round2 import _g3_ranking, _metrics, load_fold_history
+from provenance.eval.reviewer_eval_round2 import (
+    PER_PR_RESULTS_PATH,
+    ROUND1_RESULTS_PATH,
+    ROUND2_RESULTS_PATH,
+    _g3_ranking,
+    _metrics,
+    _per_pr_rankings,
+    load_fold_history,
+)
 from provenance.ingest.graph_loader import delete_graph_if_exists, load_graph
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "graph_loader"
+
+
+def test_per_pr_output_path_does_not_replace_existing_evaluations() -> None:
+    assert PER_PR_RESULTS_PATH.name == "reviewer_eval_round2_per_pr.json"
+    assert PER_PR_RESULTS_PATH not in {ROUND1_RESULTS_PATH, ROUND2_RESULTS_PATH}
 
 
 def test_fold_history_excludes_prs_at_or_after_window_start() -> None:
@@ -168,3 +181,33 @@ def test_round2_metrics_use_distinct_reviewers_and_expected_ranking_metrics() ->
             }
         },
     }
+
+
+def test_per_pr_mode_reuses_as_of_features_and_lambda() -> None:
+    from provenance.eval.reviewer_eval import HistoryFeatures
+
+    record = {
+        "target": {
+            "author": "author",
+            "modules": {"integration:demo": "integration"},
+        },
+        "owner_is_bot": {},
+        "history": HistoryFeatures(
+            popularity={"expert": 2, "generalist": 5},
+            recency={
+                "expert": {14: 0.5, 90: 1.5},
+                "generalist": {14: 1.0, 90: 2.0},
+            },
+            review_expertise={
+                ("expert", "integration:demo"): {14: 0.5, 30: 1.0, 60: 1.2, 90: 1.5}
+            },
+        ),
+    }
+
+    rankings = _per_pr_rankings(record, lambda_value=1.0)
+
+    assert set(rankings) == {"B3", "G1", "G3"}
+    assert "author" not in rankings["G3"]
+    assert record["history"].recency["generalist"][14] == 1.0
+    assert rankings["B3"][0] == "generalist"
+    assert rankings["G1"][0] == "expert"

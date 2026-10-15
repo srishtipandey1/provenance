@@ -23,16 +23,20 @@ from provenance.eval.reviewer_eval import (
     EXPERTISE_QUERY,
     HALF_LIFE_DAYS,
     LN_2,
+    expertise_scores,
     load_ground_truth,
     load_static_graph_data,
     load_targets,
+    prepare_split,
     _per_pr_metrics,
     rank_candidates,
 )
 
 
+ROOT = Path(__file__).resolve().parents[2]
 ROUND1_RESULTS_PATH = DEFAULT_RESULTS_PATH
 ROUND2_RESULTS_PATH = DEFAULT_RESULTS_PATH.parent / "reviewer_eval_round2.json"
+PER_PR_RESULTS_PATH = DEFAULT_RESULTS_PATH.parent / "reviewer_eval_round2_per_pr.json"
 G3_LAMBDAS = (0.0, 0.25, 0.5, 1.0, 2.0)
 ROUND2_BOOTSTRAP_SEED = 20261016
 FROZEN_B3_HALF_LIFE = 14
@@ -317,6 +321,26 @@ def _base_rankings(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalized_g3_scores(
+    g1_scores: dict[str, float],
+    b3_scores: dict[str, float],
+    g1_candidates: list[str],
+    b3_candidates: list[str],
+    lambda_value: float,
+) -> dict[str, float]:
+    candidate_order = list(dict.fromkeys([*g1_candidates, *b3_candidates[:20]]))
+    if not candidate_order:
+        return {}
+    maximum_g1 = max((g1_scores.get(login, 0.0) for login in candidate_order), default=0.0)
+    maximum_b3 = max((b3_scores.get(login, 0.0) for login in candidate_order), default=0.0)
+    return {
+        login: (g1_scores.get(login, 0.0) / maximum_g1 if maximum_g1 > 0 else 0.0)
+        + lambda_value
+        * (b3_scores.get(login, 0.0) / maximum_b3 if maximum_b3 > 0 else 0.0)
+        for login in candidate_order
+    }
+
+
 def _g3_ranking(
     record: dict[str, Any],
     base: dict[str, Any],
@@ -329,16 +353,11 @@ def _g3_ranking(
     g1_rank = base["rankings"]["G1"]
     b3_rank = base["rankings"]["B3"]
     candidate_order = list(dict.fromkeys([*g1_rank, *b3_rank[:20]]))
+    scores = normalized_g3_scores(
+        g1_scores, b3_scores, g1_rank, b3_rank, lambda_value
+    )
     if not candidate_order:
         return [], {}
-    maximum_g1 = max((g1_scores.get(login, 0.0) for login in candidate_order), default=0.0)
-    maximum_b3 = max((b3_scores.get(login, 0.0) for login in candidate_order), default=0.0)
-    scores = {
-        login: (g1_scores.get(login, 0.0) / maximum_g1 if maximum_g1 > 0 else 0.0)
-        + lambda_value
-        * (b3_scores.get(login, 0.0) / maximum_b3 if maximum_b3 > 0 else 0.0)
-        for login in candidate_order
-    }
     target = record["target"]
     ranking = rank_candidates(
         scores,
@@ -367,6 +386,126 @@ def _g3_ranking(
                 "module_support": module_support,
             }
     return ranking, evidence
+
+
+def _per_pr_rankings(record: dict[str, Any], lambda_value: float) -> dict[str, list[str]]:
+    target, history = record["target"], record["history"]
+    author = target["author"]
+    popularity = history.popularity
+    is_bot = {**record["owner_is_bot"], **history.is_bot}
+    g1_scores = expertise_scores(
+        target,
+        history,
+        half_life=FROZEN_G1_HALF_LIFE,
+        author_weight=FROZEN_G1_AUTHOR_WEIGHT,
+    )
+    b3_scores = {
+        login: values.get(FROZEN_B3_HALF_LIFE, 0.0)
+        for login, values in history.recency.items()
+    }
+    g1_rank = rank_candidates(
+        g1_scores, popularity=popularity, is_bot=is_bot, author=author
+    )
+    b3_rank = rank_candidates(
+        b3_scores, popularity=popularity, is_bot=is_bot, author=author
+    )
+    g3_scores = normalized_g3_scores(
+        g1_scores, b3_scores, g1_rank, b3_rank, lambda_value
+    )
+    g3_rank = rank_candidates(
+        g3_scores, popularity=popularity, is_bot=is_bot, author=author
+    )
+    record["rankings"] = {"B3": b3_rank, "G1": g1_rank, "G3": g3_rank}
+    return record["rankings"]
+
+
+def run_per_pr_comparison(
+    *,
+    graph_name: str = DEFAULT_GRAPH,
+    output_path: Path = PER_PR_RESULTS_PATH,
+) -> dict[str, Any]:
+    round1 = json.loads(ROUND1_RESULTS_PATH.read_text(encoding="utf-8"))
+    round2 = json.loads(ROUND2_RESULTS_PATH.read_text(encoding="utf-8"))
+    frozen = round1["tuning"]["frozen"]
+    if frozen != {
+        "recent_half_life_days": FROZEN_B3_HALF_LIFE,
+        "half_life_days": FROZEN_G1_HALF_LIFE,
+        "author_weight": FROZEN_G1_AUTHOR_WEIGHT,
+        "g2_half_life_days": FROZEN_G2_HALF_LIFE,
+        "g2_author_weight": FROZEN_G2_AUTHOR_WEIGHT,
+        "neighbor_factor": FROZEN_G2_NEIGHBOR_FACTOR,
+    }:
+        raise ValueError("Round-1 frozen parameters differ from the expected immutable settings.")
+
+    database = FalkorDB(host=settings.FALKORDB_HOST, port=settings.FALKORDB_PORT)
+    graph = database.select_graph(graph_name)
+    _, _, windows = _fold_windows(round1)
+    owners, dependencies, owner_is_bot = load_static_graph_data(graph)
+    folds: dict[str, Any] = {}
+    for fold_name in ("A", "B", "C"):
+        window = windows[fold_name]
+        records = prepare_split(
+            graph,
+            window_start=window["test_start"],
+            window_end=window["test_end"],
+            primary_only=True,
+            owners=owners,
+            dependencies=dependencies,
+            owner_is_bot=owner_is_bot,
+        )
+        lambda_value = float(round2["folds"][fold_name]["lambda"])
+        for record in records:
+            _per_pr_rankings(record, lambda_value)
+        metrics = _metrics(records, ("B3", "G1", "G3"))
+        folds[fold_name] = {
+            "label": round2["folds"][fold_name]["label"],
+            "test_start_utc": round2["folds"][fold_name]["test_start_utc"],
+            "test_end_utc": round2["folds"][fold_name]["test_end_utc"],
+            "history_regime": "per-target as-of: history PR merged_ts < target PR merged_ts",
+            "lambda_reused_from_round2": lambda_value,
+            "tuning_performed": False,
+            "test_metrics": metrics,
+        }
+
+    round1_b3_hit3 = round1["test"]["reviewers"]["primary"]["methods"]["B3"]["hit@3"]
+    round2_window_b3_hit3 = round2["folds"]["A"]["test_metrics"]["methods"]["B3"]["hit@3"]
+    per_pr_b3_hit3 = folds["A"]["test_metrics"]["methods"]["B3"]["hit@3"]
+    output = {
+        "graph": graph_name,
+        "round1_artifact_modified": False,
+        "round1_as_of_utc": round1["evaluation_as_of_utc"],
+        "round2_lambda_source": str(ROUND2_RESULTS_PATH.relative_to(ROOT)).replace("\\", "/"),
+        "base_parameters_frozen_from_round1": frozen,
+        "history_regime": "per-target as-of history, matching reviewer_eval.py; no test-window lambda tuning",
+        "methods": ["B3", "G1", "G3"],
+        "folds": folds,
+        "regime_comparison": {
+            "fold_A_n": folds["A"]["test_metrics"]["n"],
+            "round1_per_pr_B3_hit@3": round1_b3_hit3,
+            "round2_fixed_window_B3_hit@3": round2_window_b3_hit3,
+            "round2_per_pr_B3_hit@3": per_pr_b3_hit3,
+            "per_pr_minus_round1": per_pr_b3_hit3 - round1_b3_hit3,
+            "per_pr_minus_fixed_window": per_pr_b3_hit3 - round2_window_b3_hit3,
+            "matches_round1_within_1e-9": abs(per_pr_b3_hit3 - round1_b3_hit3) <= 1e-9,
+        },
+        "regime_comparison_note": "Fold A B3 compares identical PRs and frozen parameters; per-PR history admits earlier merged PRs from within the test window, while fixed-window history does not.",
+    }
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    table = Table(title="Per-PR as-of regime (round 2 frozen lambdas)")
+    for heading in ("Fold", "Method", "N", "Hit@1", "Hit@3", "Hit@5", "Recall@5", "MRR"):
+        table.add_column(heading, justify="right" if heading not in {"Fold", "Method"} else "left")
+    for fold_name, fold in folds.items():
+        for method, values in fold["test_metrics"]["methods"].items():
+            table.add_row(
+                fold_name + (" POST-HOC" if fold_name == "A" else ""),
+                method,
+                str(fold["test_metrics"]["n"]),
+                *[f"{values[key]:.3f}" for key in ("hit@1", "hit@3", "hit@5", "recall@5", "MRR")],
+            )
+    Console().print(table)
+    return output
 
 
 def rank_record(
