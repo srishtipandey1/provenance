@@ -39,6 +39,10 @@ BREAKING_CHECKBOX_PATTERN = re.compile(
 BREAKING_HEADING_PATTERN = re.compile(r"(?im)^##[ \t]+Breaking change[ \t]*$")
 NEXT_HEADING_PATTERN = re.compile(r"(?m)^#{1,6}[ \t]+")
 HTML_COMMENT_PATTERN = re.compile(r"<!--.*?-->", re.DOTALL)
+IMPORT_FALLBACK_PATTERN = re.compile(
+    r"(?m)^[ \t]*(?:from[ \t]+homeassistant\.components\.([A-Za-z_]\w*)"
+    r"|import[ \t]+homeassistant\.components\.([A-Za-z_]\w*))"
+)
 
 NODE_LABELS = ("Person", "Team", "Module", "PR", "Decision")
 EDGE_TYPES = (
@@ -173,6 +177,7 @@ class GraphDataset:
     )
     dependency_edges_by_source: Counter[str] = field(default_factory=Counter)
     source_stats: Counter[str] = field(default_factory=Counter)
+    parse_failure_messages: Counter[str] = field(default_factory=Counter)
     integration_manifest_keys: set[str] = field(default_factory=set)
 
     def add_node(self, label: str, properties: dict[str, Any]) -> None:
@@ -409,6 +414,9 @@ def _scan_component_imports(
     core_root: Path,
     component_root: Path,
 ) -> None:
+    dataset.source_stats["python_files_parsed_by_ast"] += 0
+    dataset.source_stats["python_files_recovered_by_regex"] += 0
+    dataset.source_stats["python_files_unreadable"] += 0
     for source_path in sorted(component_root.rglob("*.py")):
         relative = source_path.relative_to(core_root).as_posix()
         parts = PurePosixPath(relative).parts
@@ -421,22 +429,32 @@ def _scan_component_imports(
         dataset.add_node("Module", source_module)
         dataset.source_stats["python_files_considered"] += 1
         try:
-            tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=relative)
-        except (OSError, UnicodeDecodeError, SyntaxError):
-            dataset.source_stats["python_files_skipped_parse_error"] += 1
+            source = source_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            dataset.source_stats["python_files_unreadable"] += 1
             continue
-        dataset.source_stats["python_files_parsed"] += 1
         targets: set[str] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    target_name = _imported_integration(alias.name)
-                    if target_name:
-                        targets.add(target_name)
-            elif isinstance(node, ast.ImportFrom):
-                target_name = _imported_integration(node.module)
+        try:
+            tree = ast.parse(source, filename=relative)
+        except SyntaxError as error:
+            dataset.source_stats["python_files_recovered_by_regex"] += 1
+            dataset.parse_failure_messages[error.msg or "SyntaxError"] += 1
+            for match in IMPORT_FALLBACK_PATTERN.finditer(source):
+                target_name = match.group(1) or match.group(2)
                 if target_name:
                     targets.add(target_name)
+        else:
+            dataset.source_stats["python_files_parsed_by_ast"] += 1
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        target_name = _imported_integration(alias.name)
+                        if target_name:
+                            targets.add(target_name)
+                elif isinstance(node, ast.ImportFrom):
+                    target_name = _imported_integration(node.module)
+                    if target_name:
+                        targets.add(target_name)
         for target_name in sorted(targets):
             if target_name != source_name:
                 _add_dependency(
@@ -761,6 +779,10 @@ def load_dataset(
         "edge_counts": edge_counts,
         "dependency_edges_by_source": dict(sorted(dataset.dependency_edges_by_source.items())),
         "source_stats": dict(sorted(dataset.source_stats.items())),
+        "top_python_parse_failures": [
+            {"message": message, "count": count}
+            for message, count in dataset.parse_failure_messages.most_common(3)
+        ],
         "load_seconds": time.perf_counter() - started,
         "batch_size": batch_size,
     }
@@ -951,6 +973,10 @@ def print_summary(summary: dict[str, Any]) -> None:
     console.print("Source scan:")
     for name, count in summary["source_stats"].items():
         console.print(f"  {name}: {count}")
+    if summary["top_python_parse_failures"]:
+        console.print("Most common Python parse failures:")
+        for failure in summary["top_python_parse_failures"]:
+            console.print(f"  {failure['count']}: {failure['message']}")
 
 
 def print_verification(results: dict[str, Any]) -> None:
