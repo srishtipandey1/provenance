@@ -24,13 +24,15 @@ Every organization has a declared graph (CODEOWNERS, manifests, decision records
 - FalkorDB runs through docker-compose.yml.
 
 ## Working rules
-- Make small, focused commits with clear messages.
+- Keep each task small and focused so it can be committed separately.
 - After each task, print: what changed, how to verify it, and what you are unsure about.
 - Append every schema or query decision to DECISIONS.md in plain language.
 - Record AI assistance in AI_USE.md.
 - Write tests for every tool and for the verifier.
 - Never fabricate data or results. If something fails, say so plainly.
 - Do not add dependencies without stating why in DECISIONS.md.
+- Never run git commit or git push. The author commits manually in small Conventional Commits (feat:, fix:, test:, docs:, chore:, refactor:). Suggest a commit message at the end of each task instead.
+- Terminal commands run on Windows PowerShell. Call .venv\Scripts\python.exe directly.
 
 ## README must eventually contain
 Setup instructions, graph data model, the Cypher queries and algorithms the product depends on, evaluation numbers, tracks entered, and AI-use disclosure.
