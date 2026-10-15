@@ -1,0 +1,134 @@
+{
+  "base_parameters_frozen_from_round1": {
+    "author_weight": 0.5,
+    "g2_author_weight": 0.0,
+    "g2_half_life_days": 90,
+    "half_life_days": 90,
+    "neighbor_factor": 0.3,
+    "recent_half_life_days": 14
+  },
+  "folds": {
+    "A": {
+      "history_regime": "per-target as-of: history PR merged_ts < target PR merged_ts",
+      "label": "POST-HOC: G3 was designed after observing this test window.",
+      "lambda_reused_from_round2": 1.0,
+      "test_end_utc": "2026-10-15T12:35:27Z",
+      "test_metrics": {
+        "methods": {
+          "B3": {
+            "MRR": 0.3493680666820656,
+            "hit@1": 0.13790532985464032,
+            "hit@3": 0.4342154304882594,
+            "hit@5": 0.6653000372717107,
+            "recall@5": 0.61760467138775
+          },
+          "G1": {
+            "MRR": 0.3880567903266177,
+            "hit@1": 0.2407752515840477,
+            "hit@3": 0.4532240029817369,
+            "hit@5": 0.5836749906820723,
+            "recall@5": 0.5381041123120884
+          },
+          "G3": {
+            "MRR": 0.3973668983727089,
+            "hit@1": 0.1841222512113306,
+            "hit@3": 0.4949683190458442,
+            "hit@5": 0.6969809914275065,
+            "recall@5": 0.6525779599950304
+          }
+        },
+        "n": 2683
+      },
+      "test_start_utc": "2026-09-15T12:35:27Z",
+      "tuning_performed": false
+    },
+    "B": {
+      "history_regime": "per-target as-of: history PR merged_ts < target PR merged_ts",
+      "label": "Rolling-origin held-out fold.",
+      "lambda_reused_from_round2": 1.0,
+      "test_end_utc": "2026-09-15T12:35:27Z",
+      "test_metrics": {
+        "methods": {
+          "B3": {
+            "MRR": 0.4314474543979319,
+            "hit@1": 0.28563218390804596,
+            "hit@3": 0.44885057471264367,
+            "hit@5": 0.6155172413793103,
+            "recall@5": 0.540403667214012
+          },
+          "G1": {
+            "MRR": 0.46325592643891456,
+            "hit@1": 0.3373563218390805,
+            "hit@3": 0.5310344827586206,
+            "hit@5": 0.628735632183908,
+            "recall@5": 0.5638669950738916
+          },
+          "G3": {
+            "MRR": 0.48330454575404874,
+            "hit@1": 0.2988505747126437,
+            "hit@3": 0.5850574712643678,
+            "hit@5": 0.6896551724137931,
+            "recall@5": 0.6273672687465791
+          }
+        },
+        "n": 1740
+      },
+      "test_start_utc": "2026-08-16T12:35:27Z",
+      "tuning_performed": false
+    },
+    "C": {
+      "history_regime": "per-target as-of: history PR merged_ts < target PR merged_ts",
+      "label": "Rolling-origin held-out fold.",
+      "lambda_reused_from_round2": 2.0,
+      "test_end_utc": "2026-08-16T12:35:27Z",
+      "test_metrics": {
+        "methods": {
+          "B3": {
+            "MRR": 0.4770665010272576,
+            "hit@1": 0.36007462686567165,
+            "hit@3": 0.5055970149253731,
+            "hit@5": 0.6156716417910447,
+            "recall@5": 0.5194340796019901
+          },
+          "G1": {
+            "MRR": 0.5091363329630083,
+            "hit@1": 0.38619402985074625,
+            "hit@3": 0.5951492537313433,
+            "hit@5": 0.6557835820895522,
+            "recall@5": 0.5753264925373134
+          },
+          "G3": {
+            "MRR": 0.5258131952754196,
+            "hit@1": 0.36100746268656714,
+            "hit@3": 0.6231343283582089,
+            "hit@5": 0.730410447761194,
+            "recall@5": 0.6409359452736318
+          }
+        },
+        "n": 1072
+      },
+      "test_start_utc": "2026-07-17T12:35:27Z",
+      "tuning_performed": false
+    }
+  },
+  "graph": "provenance_ha",
+  "history_regime": "per-target as-of history, matching reviewer_eval.py; no test-window lambda tuning",
+  "methods": [
+    "B3",
+    "G1",
+    "G3"
+  ],
+  "regime_comparison": {
+    "fold_A_n": 2683,
+    "matches_round1_within_1e-9": true,
+    "per_pr_minus_fixed_window": 0.13678717853149458,
+    "per_pr_minus_round1": 0.0,
+    "round1_per_pr_B3_hit@3": 0.4342154304882594,
+    "round2_fixed_window_B3_hit@3": 0.2974282519567648,
+    "round2_per_pr_B3_hit@3": 0.4342154304882594
+  },
+  "regime_comparison_note": "Fold A B3 compares identical PRs and frozen parameters; per-PR history admits earlier merged PRs from within the test window, while fixed-window history does not.",
+  "round1_artifact_modified": false,
+  "round1_as_of_utc": "2026-10-15T12:35:27Z",
+  "round2_lambda_source": "results/reviewer_eval_round2.json"
+}
