@@ -31,6 +31,7 @@
 | G2 dependencies | 0.2024 | 0.4338 | 0.5703 | 0.5273 | 0.3604 |
 
 - G1-B3 hit@3 difference +0.0190, 95% CI [-0.0045, 0.0447]; G2-B3 -0.0004, CI [-0.0227, 0.0239]. Neither significantly beats B3; B3 leads hit@5/recall@5, G1 leads hit@1/MRR. Mean query latency 140.78 ms/PR (median 129.15, p95 213.79).
+- Regime check: per-PR Fold A B3=0.434215, exactly round 1; fixed-window B3=0.297428. The +0.136787 gap is fully explained by excluding earlier PRs from inside the test window. See [results/reviewer_eval_round2_per_pr.json](results/reviewer_eval_round2_per_pr.json).
 - Caveat: DECLARED_OWNER and DEPENDS_ON are current snapshots, not time-versioned; possible post-target relationship changes remain.
 
 ## Reviewer Round 2
