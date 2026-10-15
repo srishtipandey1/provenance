@@ -1,0 +1,44 @@
+{
+  "nodes": [
+    {
+      "number": 101,
+      "updatedAt": "2026-05-02T12:00:00Z",
+      "mergedAt": "2026-05-02T11:00:00Z",
+      "title": "In-window PR",
+      "body": "## Type of change\n- [x] Breaking change\nContact: public@example.com",
+      "author": { "login": "fixture-user", "__typename": "User" },
+      "mergedBy": { "login": "fixture-bot", "__typename": "Bot" },
+      "reviews": {
+        "totalCount": 1,
+        "nodes": [
+          {
+            "author": { "login": "review-bot", "__typename": "Bot" },
+            "state": "APPROVED",
+            "submittedAt": "2026-05-02T11:30:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "number": 102,
+      "updatedAt": "2026-05-02T10:00:00Z",
+      "mergedAt": "2026-03-30T10:00:00Z",
+      "title": "Old merge updated recently",
+      "body": "excluded by mergedAt"
+    },
+    {
+      "number": 103,
+      "updatedAt": "2026-03-31T23:59:59Z",
+      "mergedAt": "2026-03-30T09:00:00Z",
+      "title": "Older than stop boundary",
+      "body": "stop here"
+    },
+    {
+      "number": 104,
+      "updatedAt": "2026-03-30T23:59:59Z",
+      "mergedAt": "2026-03-30T08:00:00Z",
+      "title": "After stop boundary",
+      "body": "must not be read"
+    }
+  ]
+}

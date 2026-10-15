@@ -1,0 +1,5 @@
+{
+  "codeowners": ["@alice", "@org/team"],
+  "dependencies": ["dependency"],
+  "after_dependencies": ["after_dependency"]
+}
