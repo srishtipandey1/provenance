@@ -1,0 +1,8 @@
+falkordb
+fastapi
+uvicorn
+python-dotenv
+httpx
+pytest
+pyyaml
+rich
