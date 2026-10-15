@@ -33,6 +33,18 @@
 - G1-B3 hit@3 difference +0.0190, 95% CI [-0.0045, 0.0447]; G2-B3 -0.0004, CI [-0.0227, 0.0239]. Neither significantly beats B3; B3 leads hit@5/recall@5, G1 leads hit@1/MRR. Mean query latency 140.78 ms/PR (median 129.15, p95 213.79).
 - Caveat: DECLARED_OWNER and DEPENDS_ON are current snapshots, not time-versioned; possible post-target relationship changes remain.
 
+## Reviewer Round 2
+- Fixed window history: A/B/C have 150/120/90 available days; lambda validation n=1,740/1,072/1,324 and selected lambda=1/1/2. A is POST-HOC. Each lambda uses its origin's pre-test window, though that interval can be another later-origin fold's test.
+| Method | Hit@1 | Hit@3 | Hit@5 | Recall@5 | MRR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| B2 | 0.3144 | 0.4225 | 0.5950 | 0.5160 | 0.4307 |
+| B3 | 0.3137 | 0.4257 | 0.5334 | 0.4551 | 0.4250 |
+| G1 | 0.3019 | 0.4772 | 0.5605 | 0.4858 | 0.4148 |
+| G3 | 0.3076 | 0.5441 | 0.6472 | 0.5674 | 0.4617 |
+| G3b | 0.3243 | 0.5135 | 0.6159 | 0.5361 | 0.4494 |
+- Fold A diagnostics: G1 returned <5 candidates on 421/2,683 PRs (15.7%); conditional G1 hit@5=0.5097. Global oracle=1.0; module-local oracle=0.7059.
+- Conclusion: On unseen pooled B/C, G3 improves hit@3, hit@5, recall@5 and MRR over B3 and G1, but not hit@1; G3b has the highest hit@1. This supports a top-K hybrid gain, not universal superiority. Fold A is post-hoc; owners/dependencies are current snapshots and history is limited to 180 days. Full results: [results/reviewer_eval_round2.json](results/reviewer_eval_round2.json).
+
 ## Status And Next
 - Done: graph loader recovery and rebuild, one held-out evaluation run, strict-as-of leak tests, metrics artifact, docs and AI-use records; full suite passes (15 tests).
 - Next: typed tools with evidence objects, verifier, agent layer, multi-agent coordination, frontend, deployment, and README/video polish.
