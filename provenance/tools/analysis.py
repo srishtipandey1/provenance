@@ -449,6 +449,19 @@ def suggest_reviewers(
         params=params,
         extractor="reviewer.g3_candidates@1",
     )
+    if reviewers.value:
+        context.fact(
+            text="Recent as-of review edges supporting the top G3 reviewer candidates in the requested modules.",
+            unit="reviewer_support_edges",
+            query_id="reviewer.support_edges@1",
+            params={
+                "candidate_logins": [item["login"] for item in reviewers.value[:3]],
+                "module_keys": module_keys,
+                "expertise_start_ts": params["expertise_start_ts"],
+                "as_of_ts": context.as_of_ts,
+            },
+            extractor="reviewer.support_edges@1",
+        )
     return context.finish(
         {
             "modules": module_keys,

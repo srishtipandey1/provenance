@@ -354,6 +354,24 @@ def extract_g3_candidates(rows: list[list[Any]], params: dict[str, Any]) -> list
     ]
 
 
+@register_extractor("reviewer.support_edges@1")
+def extract_reviewer_support_edges(rows: list[list[Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "login": str(row[0]),
+            "module_key": str(row[1]),
+            "pr_number": int(row[2]),
+            "person_id": int(row[3]),
+            "pr_id": int(row[4]),
+            "module_id": int(row[5]) if row[5] is not None else None,
+            "review_edge_id": int(row[6]),
+            "touch_edge_id": int(row[7]) if row[7] is not None else None,
+            "merged_ts": int(row[8]),
+        }
+        for row in rows
+    ]
+
+
 @register_extractor("reviewer.target@1")
 def extract_reviewer_target(rows: list[list[Any]], params: dict[str, Any]) -> dict[str, Any]:
     if not rows:

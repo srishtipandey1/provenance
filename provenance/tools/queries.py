@@ -342,16 +342,12 @@ QUERY_REGISTRY: dict[str, str] = {
         WHERE id(node) IN $ids
         RETURN id(node), labels(node), node.login, node.key, node.name,
                node.number, node.title, node.status, node.kind, node.ts
-        ORDER BY id(node)
-        LIMIT 151
     """,
     "api.subgraph.edges_by_id@1": """
         MATCH (source)-[edge]->(target)
         WHERE id(edge) IN $ids
         RETURN id(edge), type(edge), id(source), id(target),
                edge.kind, edge.status, edge.ts
-        ORDER BY id(edge)
-        LIMIT 301
     """,
     "api.health.node_counts@1": """
         MATCH (node)
@@ -423,8 +419,29 @@ QUERY_REGISTRY: dict[str, str] = {
                sum(exp(-0.6931471805599453 * ($as_of_ts - history.merged_ts) / $g1_half_life_seconds) / touched_module_count) AS module_score,
                collect(DISTINCT history.number) AS pr_numbers,
                collect(DISTINCT id(authored)) AS evidence_edge_ids,
-               id(person) AS person_id, id(module) AS module_id
+                             id(person) AS person_id, id(module) AS module_id
     """,
+        "reviewer.support_edges@1": """
+                MATCH (p:Person)-[r:REVIEWED]->(pr:PR)
+                WHERE p.login IN $candidate_logins
+                    AND pr.merged_ts >= $expertise_start_ts AND pr.merged_ts <= $as_of_ts
+                    AND r.ts <= $as_of_ts
+                 RETURN p.login AS login, '' AS module_key, pr.number AS pr_number,
+                     id(p) AS person_id, id(pr) AS pr_id, null AS module_id,
+                     id(r) AS review_edge_id, null AS touch_id,
+                     pr.merged_ts AS event_ts
+                UNION ALL
+                MATCH (p:Person)-[r:REVIEWED]->(pr:PR)-[t:TOUCHES]->(m:Module)
+                WHERE p.login IN $candidate_logins AND m.key IN $module_keys
+                    AND pr.merged_ts >= $expertise_start_ts AND pr.merged_ts <= $as_of_ts
+                    AND r.ts <= $as_of_ts
+                 RETURN p.login AS login, m.key AS module_key, pr.number AS pr_number,
+                     id(p) AS person_id, id(pr) AS pr_id, id(m) AS module_id,
+                     id(r) AS review_edge_id, id(t) AS touch_id,
+                             pr.merged_ts AS event_ts
+                 ORDER BY event_ts DESC, login
+                LIMIT 120
+        """,
 }
 
 QUERY_EVIDENCE_COLUMNS: dict[str, dict[str, tuple[int, ...]]] = {
@@ -447,7 +464,8 @@ QUERY_EVIDENCE_COLUMNS: dict[str, dict[str, tuple[int, ...]]] = {
     "reviewer.g3.global@1": {"nodes": (5,), "edges": (6,)},
     "reviewer.g3.expertise@1": {"nodes": (6, 7), "edges": (8,)},
     "maintainer.top_reviewers@1": {"nodes": (2,), "edges": (4,)},
-    "reviewer.g3.bundle@1": {"nodes": (8, 9), "edges": (7,)},
+    "reviewer.g3.bundle@1": {"nodes": (8, 9)},
+    "reviewer.support_edges@1": {"nodes": (3, 4, 5), "edges": (6, 7)},
     "blast.edges@1": {"nodes": (4, 6), "edges": (5,)},
     "ownership.drift.inputs@1": {"nodes": (5, 6, 7), "edges": (8, 9)},
     "ownership.drift.inputs.all@1": {"nodes": (6, 7, 8), "edges": (9, 10)},
