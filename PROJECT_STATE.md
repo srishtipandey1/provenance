@@ -28,9 +28,10 @@
 - `scripts/run_rag_eval.py` generates the graph-free text ranking baseline with validation-only k/weight tuning and a five-PR module-cold evidence audit; `scripts/scoreboard.py` writes pooled B+C B1/B2/B3/RAG/G1/G3 metrics plus cold and ownerless slices. Encoder vectors are cached under gitignored `data/cache/rag`.
 - LLM claim construction now selects qualified fact IDs and an optional two-sentence summary; code uses each stored fact sentence as its own claim and verifies every claim. The sensor live rerun verified 4/4 claims in three Groq calls. Epenet's live run hit the three-call limit and its initial fallback verified 21/22 fact claims; the later router-reuse fix is covered by a tiny-graph test.
 - Read-only FastAPI service: typed endpoints for health, tools, ask, single-tool execution, risk/scoreboard artifacts, module/person search, and module neighborhood. Per-client throttling, persisted daily LLM budget, deterministic TTL cache, request-ID-only logging, proof subgraphs, and `scripts/serve.ps1` are documented in [docs/api.md](docs/api.md).
+- Proof Cypher is grouped by query and long list bindings are abbreviated only in display headers; full verifier params remain unchanged. Subject-first subgraphs report exact evidence totals, returned counts, truncation, and relevance notes. Final deterministic proofs (no LLM): epenet leaves under 1,800 chars with 258 of 17,402 edges; sensor risk under 1,800 chars with 236 of 14,690 edges; PR 179264 reviewer 1,977 chars with 150 of 2,781 nodes and 224 of 3,810 edges.
 
 ## Verification
-- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp` (87 passed).
+- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp` (90 passed).
 - `tests/conftest.py` preflights FalkorDB and skips only graph-dependent tests with the Docker startup message when unavailable.
 - Real CLI forms verified: `run_tool.py` supports `--arg`, `--args-file`, `--args -` (stdin), and the warned PowerShell fallback; `ask.py` supports deterministic JSON, proof display, and tamper demonstration.
 - `tests/conftest.py` skips graph-dependent tests with a single Docker startup message when FalkorDB is unreachable. AI assistance and the G3 review-event deduplication fix are in `AI_USE.md`; evaluator code and published metrics are unchanged.
