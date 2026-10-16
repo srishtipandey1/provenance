@@ -9,3 +9,5 @@ data/cache/
 .pytest_cache/
 .serena/
 .pytest-temp/
+
+.playwright-mcp/
