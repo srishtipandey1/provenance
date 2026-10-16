@@ -142,6 +142,18 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
         stale_owners = ownership_flags["stale_declared_owners"]
         ownerless = bool(ownership_flags["ownerless"])
         drift_score = float(ownership_result["drift_score"])
+        declared_owners = [
+            {
+                "kind": owner["kind"],
+                "identity": owner.get("handle") or owner.get("login"),
+            }
+            for owner in ownership_result["declared_owners"]
+        ]
+        top_behavioral_contributor = (
+            ownership_result["behavioral_top5"][0]
+            if ownership_result["behavioral_top5"]
+            else None
+        )
         page_rank = criticality_by_key.get(module_key, 0.0)
         dependent_count = int(module_results["blast_radius"].result["dependent_count"])
         candidates.append(
@@ -152,6 +164,8 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
                 "ownership_drift": drift_score,
                 "ownerless": ownerless,
                 "stale_declared_owners": stale_owners,
+                "declared_owners": declared_owners,
+                "top_behavioral_contributor": top_behavioral_contributor,
                 "page_rank": page_rank,
                 "dependent_count": dependent_count,
                 "tools": module_results,
@@ -227,7 +241,8 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
         uncovered = sorted(
             item["module_key"] for item in impacted if item["became_uncovered"]
         )
-        dependent_total = sum(int(item["dependent_count"]) for item in impacted)
+        distinct_dependents = int(result.result["distinct_dependents_affected"])
+        summed_dependent_edges = int(result.result["summed_dependent_edges"])
         top_affected = sorted(
             impacted,
             key=lambda item: (-int(item["dependent_count"]), item["module_key"]),
@@ -237,7 +252,9 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
                 "person_login": login,
                 "reviewed_pr_count": reviewer["reviewed_pr_count"],
                 "uncovered_module_count": len(uncovered),
-                "total_dependents_affected": dependent_total,
+                "uncovered_modules": uncovered,
+                "distinct_dependents_affected": distinct_dependents,
+                "summed_dependent_edges": summed_dependent_edges,
                 "top_three_affected_modules": [
                     {
                         "module_key": item["module_key"],
@@ -250,10 +267,74 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
         )
     maintainer_risks.sort(
         key=lambda item: (
-            -item["total_dependents_affected"],
+            -item["distinct_dependents_affected"],
             -item["uncovered_module_count"],
             item["person_login"],
         )
+    )
+
+    def ownership_drift_top_five() -> list[dict[str, Any]]:
+        context = ToolContext(
+            graph,
+            tool_name="risk_report_live_ownership_drift",
+            args={"as_of_ts": as_of_ts},
+            requested_as_of_ts=as_of_ts,
+        )
+        module_catalog = context.fact(
+            text="All module keys in the selected graph.",
+            unit="module_keys",
+            query_id="modules.list@1",
+            params={"extract_column": 0},
+            extractor="rows.column_values@1",
+        )
+        module_pr_counts = context.fact(
+            text="Recent distinct PR counts for every module in the graph.",
+            unit="module_pr_counts",
+            query_id="module.pr_counts@1",
+            params={
+                "module_keys": module_catalog.value,
+                "activity_start_ts": context.activity_start_ts,
+                "as_of_ts": as_of_ts,
+            },
+            extractor="module.pr_count_map@1",
+        )
+        eligible_keys = sorted(
+            key for key, count in module_pr_counts.value.items() if count >= 10
+        )
+        if not eligible_keys:
+            return []
+        drift_fact = context.fact(
+            text="Live ownership drift records for modules with at least ten recent PRs.",
+            unit="ownership_drift_records",
+            query_id="ownership.drift.inputs.all@1",
+            params={
+                "module_keys": eligible_keys,
+                "activity_start_ts": context.activity_start_ts,
+                "as_of_ts": as_of_ts,
+                "extract_top_n": 5,
+                "ownership_drift_ownerless_weight": DEFAULT_TOOL_CONFIG.ownership_drift_ownerless_weight,
+                "ownership_drift_stale_weight": DEFAULT_TOOL_CONFIG.ownership_drift_stale_weight,
+                "ownership_drift_outside_top5_weight": DEFAULT_TOOL_CONFIG.ownership_drift_outside_top5_weight,
+            },
+            extractor="ownership.drift_many@1",
+        )
+        return sorted(
+            [
+                {
+                    **item,
+                    "recent_pr_count": module_pr_counts.value[item["module_key"]],
+                    "top_behavioral_contributors": item["behavioral_top"][:5],
+                }
+                for item in drift_fact.value
+            ],
+            key=lambda item: (-item["drift_score"], item["module_key"]),
+        )[:5]
+
+    ownership_context_result = _timed_call(
+        timings,
+        "ownership_drift.top_five_live",
+        {"minimum_recent_prs": 10},
+        ownership_drift_top_five,
     )
 
     top5_evidence = []
@@ -291,6 +372,7 @@ def build_report(graph: Any, *, output_path: Path = RESULTS_PATH) -> dict[str, A
             "blast_radius_max_dependent_count": max_dependents,
         },
         "top_15_modules": top_modules,
+        "top_5_live_ownership_drift": ownership_context_result,
         "top_5_exact_facts": top5_evidence,
         "single_person_risks": maintainer_risks[:5],
         "top_10_reviewers_fact": _fact_record(reviewer_fact),
@@ -314,9 +396,20 @@ def main() -> int:
             {
                 "output": str(RESULTS_PATH.relative_to(ROOT)),
                 "candidate_pool": report["candidate_pool"],
-                "top_15_modules": report["top_15_modules"],
+                "top_15_modules": [
+                    {
+                        "rank": rank,
+                        "module_key": item["module_key"],
+                        "risk_score": item["risk_score"],
+                        "components": item["components"],
+                        "declared_owners": item["declared_owners"],
+                        "top_behavioral_contributor": item["top_behavioral_contributor"],
+                    }
+                    for rank, item in enumerate(report["top_15_modules"], start=1)
+                ],
                 "top_5_exact_facts": report["top_5_exact_facts"],
-                "single_person_risks": report["single_person_risks"],
+                "five_single_person_risks": report["single_person_risks"],
+                "top_5_live_ownership_drift": report["top_5_live_ownership_drift"],
                 "tool_calls_over_2_seconds": report["tool_calls_over_2_seconds"],
                 "tool_call_count": len(report["tool_call_timings"]),
                 "max_tool_seconds": max(

@@ -186,6 +186,30 @@ def extract_ownership_drift(rows: list[list[Any]], params: dict[str, Any]) -> di
     }
 
 
+@register_extractor("ownership.drift_many@1")
+def extract_ownership_drift_many(rows: list[list[Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[list[Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row[0])].append(row[1:])
+    results = []
+    for module_key in sorted(grouped):
+        summary = extract_ownership_drift(
+            grouped[module_key],
+            {**params, "module_key": module_key},
+        )
+        results.append(
+            {
+                "module_key": module_key,
+                "owners": summary["owners"],
+                "behavioral_top": summary["behavioral_top"],
+                "ownerless": summary["ownerless"],
+                "stale_declared_owners": summary["stale_declared_owners"],
+                "drift_score": summary["drift_score"],
+            }
+        )
+    return results
+
+
 @register_extractor("bus.module_summary@1")
 def extract_bus_module_summary(rows: list[list[Any]], params: dict[str, Any]) -> dict[str, Any]:
     module_key = str(params["module_key"])
@@ -307,16 +331,21 @@ def extract_g3_candidates(rows: list[list[Any]], params: dict[str, Any]) -> list
             "b3_score": global_scores.get(login, 0.0),
             "g3_score": scores[login],
             "global_review_prs": [
-                int(number)
-                for row in rows
-                if row[0] == "global" and row[1] == login
-                for number in row[6] or []
+                number
+                for number in sorted(
+                    {
+                        int(number)
+                        for row in rows
+                        if row[0] == "global" and row[1] == login
+                        for number in row[6] or []
+                    }
+                )
             ],
             "module_support": [
                 {
                     "module_key": module_key,
-                    "review_prs": values["review_prs"],
-                    "authored_prs": values["authored_prs"],
+                    "review_prs": sorted(set(values["review_prs"])),
+                    "authored_prs": sorted(set(values["authored_prs"])),
                 }
                 for module_key, values in sorted(support.get(login, {}).items())
             ],
@@ -694,6 +723,36 @@ def extract_maintainer_dependent_counts(rows: list[list[Any]], params: dict[str,
         root_key, dependent_key = str(row[0]), str(row[1])
         counts[root_key].add(dependent_key)
     return {key: len(values) for key, values in sorted(counts.items())}
+
+
+@register_extractor("maintainer.dependent_impact@1")
+def extract_maintainer_dependent_impact(rows: list[list[Any]], params: dict[str, Any]) -> dict[str, Any]:
+    dependent_modules: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        root_key, dependent_key = str(row[0]), str(row[1])
+        if root_key != dependent_key:
+            dependent_modules[root_key].add(dependent_key)
+    modules = {
+        root_key: sorted(dependent_keys)
+        for root_key, dependent_keys in sorted(dependent_modules.items())
+    }
+    uncovered_modules = set(params.get("extract_uncovered_module_keys", []))
+    distinct_dependents = {
+        dependent_key
+        for root_key in uncovered_modules
+        for dependent_key in modules.get(root_key, [])
+    }
+    return {
+        "dependent_modules_by_module": modules,
+        "dependent_counts_by_module": {
+            root_key: len(dependent_keys)
+            for root_key, dependent_keys in modules.items()
+        },
+        "distinct_dependents_affected": len(distinct_dependents),
+        "summed_dependent_edges": sum(
+            len(modules.get(root_key, [])) for root_key in uncovered_modules
+        ),
+    }
 
 
 @register_extractor("maintainer.top_reviewers@1")

@@ -507,7 +507,12 @@ def maintainer_loss(
         extractor="maintainer.loss_modules@1",
     )
     losses = loss_activity.value
-    dependency_counts: dict[str, int] = {}
+    dependency_impact: dict[str, Any] = {
+        "dependent_modules_by_module": {},
+        "dependent_counts_by_module": {},
+        "distinct_dependents_affected": 0,
+        "summed_dependent_edges": 0,
+    }
     dependents_fact_id = None
     if losses:
         loss_module_keys = [item["module_key"] for item in losses]
@@ -519,20 +524,25 @@ def maintainer_loss(
         )
         dependents = context.fact(
             text=f"Distinct reverse dependents within {depth} dependency hops of impacted modules.",
-            unit="module_dependent_counts",
+            unit="module_dependent_sets_and_counts",
             query_id=dependency_query,
             params={
                 "module_keys": loss_module_keys,
                 "max_depth": depth,
+                "extract_uncovered_module_keys": [
+                    item["module_key"] for item in losses if item["became_uncovered"]
+                ],
             },
-            extractor="maintainer.dependent_counts@1",
+            extractor="maintainer.dependent_impact@1",
         )
-        dependency_counts = dependents.value
+        dependency_impact = dependents.value
         dependents_fact_id = dependents.fact_id
     modules_at_risk = [
         {
             **item,
-            "dependent_count": dependency_counts.get(item["module_key"], 0),
+            "dependent_count": dependency_impact["dependent_counts_by_module"].get(
+                item["module_key"], 0
+            ),
             "loss_fact_id": loss_activity.fact_id,
             "dependents_fact_id": dependents_fact_id,
         }
@@ -543,6 +553,12 @@ def maintainer_loss(
             "person_login": person_login,
             "modules": modules_at_risk,
             "module_count": len(modules_at_risk),
+            "distinct_dependents_affected": dependency_impact[
+                "distinct_dependents_affected"
+            ],
+            "summed_dependent_edges": dependency_impact[
+                "summed_dependent_edges"
+            ],
         }
     )
 

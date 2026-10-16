@@ -146,6 +146,33 @@ QUERY_REGISTRY: dict[str, str] = {
              id(module) AS module_id, id(person) AS person_id, id(pr) AS pr_id,
              id(review) AS event_id, id(touch) AS touch_id
         """,
+        "ownership.drift.inputs.all@1": """
+         MATCH (owner)-[declared:DECLARED_OWNER]->(module:Module)
+         WHERE module.key IN $module_keys
+         RETURN module.key AS module_key, 'owner' AS row_type,
+             owner.login AS login, owner.handle AS handle,
+             owner.is_bot AS is_bot, null AS role, id(module) AS module_id,
+             id(owner) AS person_id, null AS pr_id, id(declared) AS event_id,
+             null AS touch_id
+         UNION ALL
+         MATCH (person:Person)-[authored:AUTHORED]->(pr:PR)-[touch:TOUCHES]->(module:Module)
+         WHERE module.key IN $module_keys
+           AND pr.merged_ts >= $activity_start_ts AND pr.merged_ts <= $as_of_ts
+           AND authored.ts <= $as_of_ts AND person.is_bot = false
+         RETURN module.key AS module_key, 'activity' AS row_type,
+             person.login AS login, null AS handle, person.is_bot AS is_bot,
+             'author' AS role, id(module) AS module_id, id(person) AS person_id,
+             id(pr) AS pr_id, id(authored) AS event_id, id(touch) AS touch_id
+         UNION ALL
+         MATCH (person:Person)-[review:REVIEWED]->(pr:PR)-[touch:TOUCHES]->(module:Module)
+         WHERE module.key IN $module_keys
+           AND pr.merged_ts >= $activity_start_ts AND pr.merged_ts <= $as_of_ts
+           AND review.ts <= $as_of_ts AND person.is_bot = false
+         RETURN module.key AS module_key, 'activity' AS row_type,
+             person.login AS login, null AS handle, person.is_bot AS is_bot,
+             'review' AS role, id(module) AS module_id, id(person) AS person_id,
+             id(pr) AS pr_id, id(review) AS event_id, id(touch) AS touch_id
+        """,
         "bus_factor.inputs@1": """
          MATCH (pr:PR)-[touch:TOUCHES]->(module:Module)
          WHERE pr.merged_ts >= $activity_start_ts AND pr.merged_ts <= $as_of_ts
@@ -385,6 +412,7 @@ QUERY_EVIDENCE_COLUMNS: dict[str, dict[str, tuple[int, ...]]] = {
     "reviewer.g3.bundle@1": {"nodes": (8, 9), "edges": (7,)},
     "blast.edges@1": {"nodes": (4, 6), "edges": (5,)},
     "ownership.drift.inputs@1": {"nodes": (5, 6, 7), "edges": (8, 9)},
+    "ownership.drift.inputs.all@1": {"nodes": (6, 7, 8), "edges": (9, 10)},
     "bus_factor.inputs@1": {"nodes": (5, 6, 7), "edges": (8, 9)},
     "decision.by_pr@1": {"nodes": (6, 7), "edges": (8,)},
     "decision.supersedes_chain@1": {"nodes": (2, 3), "edges": (4,)},

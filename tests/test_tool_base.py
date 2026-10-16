@@ -326,6 +326,7 @@ def test_maintainer_loss_facts_replay_on_tiny_graph(tool_graph) -> None:
             "module_keys": [
                 "integration:maintainer-share",
                 "integration:maintainer-sole",
+                "integration:maintainer-sole-2",
                 "integration:maintainer-dependent",
             ]
         },
@@ -370,6 +371,10 @@ def test_maintainer_loss_facts_replay_on_tiny_graph(tool_graph) -> None:
                     {"number": number, "module_key": "integration:maintainer-sole"}
                     for number in sole_prs
                 ],
+                *[
+                    {"number": number, "module_key": "integration:maintainer-sole-2"}
+                    for number in sole_prs
+                ],
             ]
         },
     )
@@ -397,6 +402,22 @@ def test_maintainer_loss_facts_replay_on_tiny_graph(tool_graph) -> None:
         RETURN id(edge)
         """
     )
+    tool_graph.query(
+        """
+        MATCH (dependent:Module {key: 'integration:maintainer-dependent'})
+        MATCH (target:Module {key: 'integration:maintainer-sole'})
+        MERGE (dependent)-[edge:DEPENDS_ON {kind: 'dependency'}]->(target)
+        RETURN id(edge)
+        """
+    )
+    tool_graph.query(
+        """
+        MATCH (dependent:Module {key: 'integration:maintainer-dependent'})
+        MATCH (target:Module {key: 'integration:maintainer-sole-2'})
+        MERGE (dependent)-[edge:DEPENDS_ON {kind: 'dependency'}]->(target)
+        RETURN id(edge)
+        """
+    )
     assert tool_graph.ro_query(
         QUERY_REGISTRY["maintainer.dependents.depth2@1"],
         {"module_keys": ["integration:maintainer-share"], "max_depth": 2},
@@ -416,9 +437,21 @@ def test_maintainer_loss_facts_replay_on_tiny_graph(tool_graph) -> None:
         if item["module_key"] == "integration:maintainer-sole"
     )
     assert sole_module["became_uncovered"] is True
+    second_sole_module = next(
+        item for item in owner_loss.result["modules"]
+        if item["module_key"] == "integration:maintainer-sole-2"
+    )
+    assert second_sole_module["became_uncovered"] is True
+    assert owner_loss.result["distinct_dependents_affected"] == 1
+    assert owner_loss.result["summed_dependent_edges"] == 2
     for result in (reviewer_loss, owner_loss):
         for fact in result.facts:
             assert recompute_fact(tool_graph, fact) == fact.value
+
+    no_loss = maintainer_loss(tool_graph, person_login="human-reviewer")
+    assert no_loss.result["modules"] == []
+    assert no_loss.result["distinct_dependents_affected"] == 0
+    assert no_loss.result["summed_dependent_edges"] == 0
 
 
 def test_decision_trace_facts_replay_on_tiny_graph(tool_graph) -> None:
@@ -713,4 +746,31 @@ def test_top_reviewers_extractor_fact_replays_on_tiny_graph(tool_graph) -> None:
         item for item in fact.value if item["login"] == "human-reviewer"
     )
     assert human_reviewer["reviewed_pr_count"] == 1
+    assert recompute_fact(tool_graph, fact) == fact.value
+
+
+def test_batched_ownership_drift_query_replays_on_tiny_graph(tool_graph) -> None:
+    context = ToolContext(tool_graph, tool_name="risk_report", args={})
+    module_keys = ["integration:demo", "integration:dependency"]
+    fact = context.fact(
+        text="Declared owners and recent human behavioral contributors for the selected modules.",
+        unit="module_ownership_drift_records",
+        query_id="ownership.drift.inputs.all@1",
+        params={
+            "module_keys": module_keys,
+            "activity_start_ts": 0,
+            "as_of_ts": context.as_of_ts,
+            "extract_top_n": 5,
+            "ownership_drift_ownerless_weight": 0.4,
+            "ownership_drift_stale_weight": 0.3,
+            "ownership_drift_outside_top5_weight": 0.3,
+        },
+        extractor="ownership.drift_many@1",
+    )
+
+    assert [item["module_key"] for item in fact.value] == module_keys
+    demo = fact.value[0]
+    assert {owner["kind"] for owner in demo["owners"]} == {"person", "team"}
+    assert demo["behavioral_top"]
+    assert all(item["login"] != "review-bot" for item in demo["behavioral_top"])
     assert recompute_fact(tool_graph, fact) == fact.value
