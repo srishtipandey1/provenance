@@ -696,6 +696,18 @@ def extract_maintainer_dependent_counts(rows: list[list[Any]], params: dict[str,
     return {key: len(values) for key, values in sorted(counts.items())}
 
 
+@register_extractor("maintainer.top_reviewers@1")
+def extract_maintainer_top_reviewers(rows: list[list[Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    top_n = int(params.get("extract_top_n", 10))
+    return [
+        {
+            "login": str(row[0]),
+            "reviewed_pr_count": int(row[1]),
+        }
+        for row in rows[:top_n]
+    ]
+
+
 def _flatten_ints(value: Any) -> list[int]:
     if isinstance(value, bool):
         return []

@@ -20,6 +20,7 @@ from provenance.eval.reviewer_eval_round2 import (
     _per_pr_rankings,
 )
 from provenance.ingest.graph_loader import delete_graph_if_exists, load_graph
+from provenance.ingest.graph_loader import EDGE_LOAD_QUERIES, NODE_LOAD_QUERIES
 from provenance.tools.base import (
     ToolContext,
     extract_bus_module_summary,
@@ -510,3 +511,206 @@ def test_tool_registry_exports_eight_function_schemas() -> None:
         and tool["inputSchema"]["type"] == "object"
         for tool in TOOL_REGISTRY.values()
     )
+
+
+def test_unwind_match_load_templates_return_rows_on_tiny_graph(tool_graph) -> None:
+    for label, rows in {
+        "Person": [
+            {"login": "query-audit-person", "is_bot": False},
+        ],
+        "Team": [{"handle": "query-audit/team"}],
+        "Module": [
+            {"key": "integration:query-audit-a", "kind": "integration", "name": "a"},
+            {"key": "integration:query-audit-b", "kind": "integration", "name": "b"},
+        ],
+        "PR": [
+            {
+                "number": 97001,
+                "title": "query audit",
+                "merged_ts": 1792058964,
+                "additions": 1,
+                "deletions": 0,
+                "breaking_box": False,
+                "breaking_text": False,
+                "labels": [],
+            }
+        ],
+        "Decision": [
+            {"id": "query-audit-new", "title": "new", "status": "accepted", "source": "new.md"},
+            {"id": "query-audit-old", "title": "old", "status": "accepted", "source": "old.md"},
+        ],
+    }.items():
+        tool_graph.query(NODE_LOAD_QUERIES[label], {"rows": rows})
+
+    rows_by_type = {
+        "AUTHORED": [{"login": "query-audit-person", "pr_number": 97001, "ts": 1792058964}],
+        "REVIEWED": [{"login": "query-audit-person", "pr_number": 97001, "state": "APPROVED", "ts": 1792058964}],
+        "TOUCHES": [{"pr_number": 97001, "module_key": "integration:query-audit-a", "files": 1, "additions": 1, "deletions": 0}],
+        "PERSON_OWNER": [{"login": "query-audit-person", "module_key": "integration:query-audit-a"}],
+        "TEAM_OWNER": [{"handle": "query-audit/team", "module_key": "integration:query-audit-a"}],
+        "DEPENDS_ON": [{"source_key": "integration:query-audit-a", "target_key": "integration:query-audit-b", "kind": "dependency"}],
+        "SUPERSEDES": [{"newer_id": "query-audit-new", "older_id": "query-audit-old"}],
+        "REFERENCES": [{"pr_number": 97001, "decision_id": "query-audit-new"}],
+        "DECIDED_AS": [{"pr_number": 97001, "decision_id": "query-audit-old"}],
+    }
+    endpoint_checks = {
+        "AUTHORED": (
+            "MATCH (source:Person {login: $source})-[edge:AUTHORED]->(target:PR {number: $target}) RETURN count(edge)",
+            {"source": "query-audit-person", "target": 97001},
+        ),
+        "REVIEWED": (
+            "MATCH (source:Person {login: $source})-[edge:REVIEWED]->(target:PR {number: $target}) RETURN count(edge)",
+            {"source": "query-audit-person", "target": 97001},
+        ),
+        "TOUCHES": (
+            "MATCH (source:PR {number: $source})-[edge:TOUCHES]->(target:Module {key: $target}) RETURN count(edge)",
+            {"source": 97001, "target": "integration:query-audit-a"},
+        ),
+        "PERSON_OWNER": (
+            "MATCH (source:Person {login: $source})-[edge:DECLARED_OWNER]->(target:Module {key: $target}) RETURN count(edge)",
+            {"source": "query-audit-person", "target": "integration:query-audit-a"},
+        ),
+        "TEAM_OWNER": (
+            "MATCH (source:Team {handle: $source})-[edge:DECLARED_OWNER]->(target:Module {key: $target}) RETURN count(edge)",
+            {"source": "query-audit/team", "target": "integration:query-audit-a"},
+        ),
+        "DEPENDS_ON": (
+            "MATCH (source:Module {key: $source})-[edge:DEPENDS_ON]->(target:Module {key: $target}) RETURN count(edge)",
+            {"source": "integration:query-audit-a", "target": "integration:query-audit-b"},
+        ),
+        "SUPERSEDES": (
+            "MATCH (source:Decision {id: $source})-[edge:SUPERSEDES]->(target:Decision {id: $target}) RETURN count(edge)",
+            {"source": "query-audit-new", "target": "query-audit-old"},
+        ),
+        "REFERENCES": (
+            "MATCH (source:PR {number: $source})-[edge:REFERENCES]->(target:Decision {id: $target}) RETURN count(edge)",
+            {"source": 97001, "target": "query-audit-new"},
+        ),
+        "DECIDED_AS": (
+            "MATCH (source:PR {number: $source})-[edge:DECIDED_AS]->(target:Decision {id: $target}) RETURN count(edge)",
+            {"source": 97001, "target": "query-audit-old"},
+        ),
+    }
+    edge_counts = {}
+    for edge_type, rows in rows_by_type.items():
+        tool_graph.query(EDGE_LOAD_QUERIES[edge_type], {"rows": rows})
+        check_query, check_params = endpoint_checks[edge_type]
+        edge_counts[edge_type] = tool_graph.ro_query(check_query, check_params).result_set[0][0]
+
+    assert edge_counts == {edge_type: 1 for edge_type in EDGE_LOAD_QUERIES}
+
+
+def test_bound_key_tool_and_zero_owner_queries_on_tiny_graph(tool_graph) -> None:
+    tool_graph.query(
+        NODE_LOAD_QUERIES["Module"],
+        {
+            "rows": [
+                {
+                    "key": "integration:query-audit-zero",
+                    "kind": "integration",
+                    "name": "zero",
+                }
+            ]
+        },
+    )
+    tool_graph.query(
+        NODE_LOAD_QUERIES["PR"],
+        {
+            "rows": [
+                {
+                    "number": 97002,
+                    "title": "zero owner audit",
+                    "merged_ts": 1792058964,
+                    "additions": 0,
+                    "deletions": 0,
+                    "breaking_box": False,
+                    "breaking_text": False,
+                    "labels": [],
+                }
+            ]
+        },
+    )
+    tool_graph.query(
+        EDGE_LOAD_QUERIES["TOUCHES"],
+        {
+            "rows": [
+                {
+                    "pr_number": 97002,
+                    "module_key": "integration:query-audit-zero",
+                    "files": 1,
+                    "additions": 0,
+                    "deletions": 0,
+                }
+            ]
+        },
+    )
+    tool_graph.query(
+        """
+        CREATE (:Module {key: 'integration:query-audit-dependent', kind: 'integration'})
+        """
+    )
+    tool_graph.query(
+        """
+        MATCH (dependent:Module {key: 'integration:query-audit-dependent'})
+        MATCH (target:Module {key: 'integration:demo'})
+        MERGE (dependent)-[edge:DEPENDS_ON {kind: 'dependency'}]->(target)
+        RETURN id(edge)
+        """
+    )
+    root_keys = ["integration:demo"]
+    bound_map_path = tool_graph.ro_query(
+        """
+        UNWIND $module_keys AS root_key
+        MATCH path=(dependent:Module)-[edges:DEPENDS_ON*1..2]->(target:Module {key: root_key})
+        WHERE length(path) <= $max_depth
+        RETURN root_key, dependent.key, length(path)
+        """,
+        {"module_keys": root_keys, "max_depth": 1},
+    ).result_set
+    depth_one = tool_graph.ro_query(
+        QUERY_REGISTRY["maintainer.dependents.depth1@1"],
+        {"module_keys": root_keys},
+    ).result_set
+    depth_two = tool_graph.ro_query(
+        QUERY_REGISTRY["maintainer.dependents.depth2@1"],
+        {"module_keys": root_keys, "max_depth": 1},
+    ).result_set
+    zero_owner = tool_graph.ro_query(
+        """
+        UNWIND $integration_keys AS module_key
+        MATCH (module:Module {key: module_key})
+        OPTIONAL MATCH (owner)-[declared:DECLARED_OWNER]->(module)
+        WITH module, count(declared) AS owner_count
+        WHERE owner_count = 0
+        OPTIONAL MATCH (pr:PR)-[touch:TOUCHES]->(module)
+        RETURN count(DISTINCT module.key), count(DISTINCT pr.number), count(DISTINCT touch)
+        """,
+        {"integration_keys": ["integration:query-audit-zero"]},
+    ).result_set
+
+    assert bound_map_path == []
+    assert len(depth_one) == 1
+    assert len(depth_two) == 1
+    assert depth_two[0][1] == "integration:query-audit-dependent"
+    assert zero_owner == [[1, 1, 1]]
+
+
+def test_top_reviewers_extractor_fact_replays_on_tiny_graph(tool_graph) -> None:
+    context = ToolContext(tool_graph, tool_name="risk_report", args={})
+    fact = context.fact(
+        text="Top human reviewers in the activity window, with supporting PR numbers.",
+        unit="reviewer_records",
+        query_id="maintainer.top_reviewers@1",
+        params={
+            "activity_start_ts": context.activity_start_ts,
+            "as_of_ts": context.as_of_ts,
+            "extract_top_n": 10,
+        },
+        extractor="maintainer.top_reviewers@1",
+    )
+
+    human_reviewer = next(
+        item for item in fact.value if item["login"] == "human-reviewer"
+    )
+    assert human_reviewer["reviewed_pr_count"] == 1
+    assert recompute_fact(tool_graph, fact) == fact.value
