@@ -337,6 +337,44 @@ QUERY_REGISTRY: dict[str, str] = {
                [edge IN relationships(path) | id(edge)], id(target)
         ORDER BY target.key, dependent.key, length(path)
     """,
+    "api.subgraph.nodes_by_id@1": """
+        MATCH (node)
+        WHERE id(node) IN $ids
+        RETURN id(node), labels(node), node.login, node.key, node.name,
+               node.number, node.title, node.status, node.kind, node.ts
+        ORDER BY id(node)
+        LIMIT 151
+    """,
+    "api.subgraph.edges_by_id@1": """
+        MATCH (source)-[edge]->(target)
+        WHERE id(edge) IN $ids
+        RETURN id(edge), type(edge), id(source), id(target),
+               edge.kind, edge.status, edge.ts
+        ORDER BY id(edge)
+        LIMIT 301
+    """,
+    "api.health.node_counts@1": """
+        MATCH (node)
+        RETURN labels(node), count(node)
+    """,
+    "api.health.edge_counts@1": """
+        MATCH ()-[edge]->()
+        RETURN type(edge), count(edge)
+    """,
+    "api.search.people@1": """
+        MATCH (person:Person)
+        WHERE toLower(person.login) CONTAINS toLower($q)
+        RETURN person.login, id(person)
+        ORDER BY person.login
+        LIMIT 10
+    """,
+    "api.neighborhood.dependents@1": """
+        MATCH (dependent:Module)-[edge:DEPENDS_ON]->(target:Module {key: $module_key})
+        RETURN dependent.key, dependent.kind, id(dependent),
+               collect(DISTINCT id(edge)), id(target)
+        ORDER BY dependent.key
+        LIMIT 31
+    """,
     "maintainer.top_reviewers@1": """
         MATCH (person:Person)-[review:REVIEWED]->(pr:PR)
         WHERE pr.merged_ts >= $activity_start_ts AND pr.merged_ts <= $as_of_ts
@@ -422,4 +460,10 @@ QUERY_EVIDENCE_COLUMNS: dict[str, dict[str, tuple[int, ...]]] = {
     "criticality.in_degree@1": {"nodes": (2,), "edges": (3,)},
     "maintainer.dependents.depth1@1": {"nodes": (3, 5), "edges": (4,)},
     "maintainer.dependents.depth2@1": {"nodes": (3, 5), "edges": (4,)},
+    "api.subgraph.nodes_by_id@1": {"nodes": (0,)},
+    "api.subgraph.edges_by_id@1": {"nodes": (2, 3), "edges": (0,)},
+    "api.health.node_counts@1": {},
+    "api.health.edge_counts@1": {},
+    "api.search.people@1": {"nodes": (1,)},
+    "api.neighborhood.dependents@1": {"nodes": (2, 4), "edges": (3,)},
 }
