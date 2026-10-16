@@ -26,9 +26,11 @@
 - The plain-code verifier replays registered Facts, grounds claim numbers, checks as-of pins, and attaches owner/dependency snapshot caveats. The deterministic router and `scripts/ask.py` support risk, reviewer, maintainer, owner, dependency, top-risk, and decision questions with proof display and a labeled tamper hook.
 - LLM smoke outcome: Groq handled both live questions within 7 calls; the sensor-risk claim was removed as unsupported, and the epenet question fell back after 4 calls to one verified deterministic claim. A separate single Gemini request verified `gemini-3.8-flash`; total real calls were 8.
 - `scripts/run_rag_eval.py` generates the graph-free text ranking baseline with validation-only k/weight tuning and a five-PR module-cold evidence audit; `scripts/scoreboard.py` writes pooled B+C B1/B2/B3/RAG/G1/G3 metrics plus cold and ownerless slices. Encoder vectors are cached under gitignored `data/cache/rag`.
+- LLM claim construction now selects qualified fact IDs and an optional two-sentence summary; code uses each stored fact sentence as its own claim and verifies every claim. The sensor live rerun verified 4/4 claims in three Groq calls. Epenet's live run hit the three-call limit and its initial fallback verified 21/22 fact claims; the later router-reuse fix is covered by a tiny-graph test.
+- Read-only FastAPI service: typed endpoints for health, tools, ask, single-tool execution, risk/scoreboard artifacts, module/person search, and module neighborhood. Per-client throttling, persisted daily LLM budget, deterministic TTL cache, request-ID-only logging, proof subgraphs, and `scripts/serve.ps1` are documented in [docs/api.md](docs/api.md).
 
 ## Verification
-- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp` (79 passed).
+- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp` (87 passed).
 - `tests/conftest.py` preflights FalkorDB and skips only graph-dependent tests with the Docker startup message when unavailable.
 - Real CLI forms verified: `run_tool.py` supports `--arg`, `--args-file`, `--args -` (stdin), and the warned PowerShell fallback; `ask.py` supports deterministic JSON, proof display, and tamper demonstration.
 - `tests/conftest.py` skips graph-dependent tests with a single Docker startup message when FalkorDB is unreachable. AI assistance and the G3 review-event deduplication fix are in `AI_USE.md`; evaluator code and published metrics are unchanged.
