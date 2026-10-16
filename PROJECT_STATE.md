@@ -18,11 +18,14 @@
 ## Tools And Reports
 - Eight deterministic, read-only, fact-replaying tools: module_profile, ownership_drift, bus_factor, blast_radius, criticality, suggest_reviewers, maintainer_loss, decision_trace.
 - Registry exports JSON schemas for OpenAI function calling and MCP. CLI: `scripts/run_tool.py`; risk report: `scripts/risk_report.py` and [results/risk_report.json](results/risk_report.json).
-- Real graph: `integration:sensor` has 797 direct dependency rows; removing `epenet` newly uncovers 21 modules, with 2,297 total dependents affected and 456 for `integration:binary_sensor`.
-- Risk score weights: bus factor 0.35, ownership drift 0.30, normalized PageRank 0.20, normalized reverse-dependency count 0.15; full formula is in `DECISIONS.md`.
+- Real graph: `integration:sensor` has 797 direct dependency rows; removing `epenet` newly uncovers 21 modules, with 751 distinct dependents affected versus 2,292 summed per-module counts. `integration:binary_sensor` has 455 distinct dependents.
+- Risk score weights: bus factor 0.35, ownership drift 0.30, normalized PageRank 0.20, normalized reverse-dependency count 0.15. Report also stores owners, top behavioral contributors, and live drift leaders for modules with at least 10 PRs.
 - A temporary-graph audit confirmed FalkorDB's variable-length path quirk for `UNWIND` aliases in pattern maps; the registered query now filters `target.key IN $module_keys`.
+- The pure-code verifier replays registered facts, checks numeric grounding/as-of agreement, attaches snapshot caveats, and renders proof snippets for display only. Deterministic question router and `scripts/ask.py` cover risk, reviewer, maintainer, owner, dependency, top-risk, and decision questions; `--tamper N` is a labeled test hook.
+- The plain-code verifier replays registered Facts, grounds claim numbers, checks as-of pins, and attaches owner/dependency snapshot caveats. The deterministic router and `scripts/ask.py` support risk, reviewer, maintainer, owner, dependency, top-risk, and decision questions with proof display and a labeled tamper hook.
 
 ## Verification
 - Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp`.
-- Real CLI forms verified: `--arg`, `--args-file`, `--args -` (stdin), and the warned PowerShell-mangled `--args` fallback.
-- AI assistance and the G3 review-event deduplication fix are recorded in `AI_USE.md`; evaluator code and published metrics were unchanged.
+- `tests/conftest.py` preflights FalkorDB and skips only graph-dependent tests with the Docker startup message when unavailable.
+- Real CLI forms verified: `run_tool.py` supports `--arg`, `--args-file`, `--args -` (stdin), and the warned PowerShell fallback; `ask.py` supports deterministic JSON, proof display, and tamper demonstration.
+- `tests/conftest.py` skips graph-dependent tests with a single Docker startup message when FalkorDB is unreachable. AI assistance and the G3 review-event deduplication fix are in `AI_USE.md`; evaluator code and published metrics are unchanged.
