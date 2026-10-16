@@ -209,7 +209,7 @@ def test_real_graph_api_ask_smoke_routes_and_tamper() -> None:
     database = FalkorDB(host=settings.FALKORDB_HOST, port=settings.FALKORDB_PORT)
     graph = database.select_graph("provenance_ha")
     app = create_app(graph=graph, provider_probe=lambda: [], daily_budget_path=Path(".pytest-temp/api-real.json"))
-    timings = []
+    measurements = []
     with TestClient(app) as client:
         for question in (
             "what is the risk of changing sensor?",
@@ -224,7 +224,71 @@ def test_real_graph_api_ask_smoke_routes_and_tamper() -> None:
             payload = response.json()
             assert payload["claims"]
             assert all(claim["status"] == "VERIFIED" for claim in payload["claims"])
-            timings.append(sum(item["seconds"] for item in payload["tool_timings"]))
+            proof_counts = [
+                {
+                    "nodes": f"{claim['proof']['subgraph']['node_count_returned']}/"
+                    f"{claim['proof']['subgraph']['node_count_total']}",
+                    "edges": f"{claim['proof']['subgraph']['edge_count_returned']}/"
+                    f"{claim['proof']['subgraph']['edge_count_total']}",
+                }
+                for claim in payload["claims"]
+            ]
+            assert all(
+                item["proof"]["subgraph"]["node_count_returned"]
+                + item["proof"]["subgraph"]["edge_count_returned"]
+                > 0
+                for item in payload["claims"]
+                if item["proof"]["subgraph"]["node_count_total"]
+                + item["proof"]["subgraph"]["edge_count_total"]
+                > 0
+            )
+            rendered_lengths = [
+                len(claim["proof"]["rendered_cypher"])
+                for claim in payload["claims"]
+            ]
+            assert max(rendered_lengths, default=0) < 2000
+            if question == "what happens if epenet leaves?":
+                displays = {
+                    node["props"].get("login") or node["props"].get("key")
+                    for claim in payload["claims"]
+                    for node in claim["proof"]["subgraph"]["nodes"]
+                }
+                assert "epenet" in displays
+                assert {
+                    "integration:binary_sensor",
+                    "integration:light",
+                    "integration:switch",
+                } <= displays
+            measurements.append(
+                {
+                    "question": question,
+                    "claims": len(payload["claims"]),
+                    "statuses": [claim["status"] for claim in payload["claims"]],
+                    "rendered_cypher_total_chars": sum(rendered_lengths),
+                    "rendered_cypher_max_chars": max(rendered_lengths, default=0),
+                    "node_counts_returned_total": sum(
+                        item["proof"]["subgraph"]["node_count_returned"]
+                        for item in payload["claims"]
+                    ),
+                    "node_counts_total": sum(
+                        item["proof"]["subgraph"]["node_count_total"]
+                        for item in payload["claims"]
+                    ),
+                    "edge_counts_returned_total": sum(
+                        item["proof"]["subgraph"]["edge_count_returned"]
+                        for item in payload["claims"]
+                    ),
+                    "edge_counts_total": sum(
+                        item["proof"]["subgraph"]["edge_count_total"]
+                        for item in payload["claims"]
+                    ),
+                    "proof_counts_by_claim": proof_counts,
+                    "response_kb": round(len(response.content) / 1024, 2),
+                    "tool_timing_seconds": round(
+                        sum(item["seconds"] for item in payload["tool_timings"]), 4
+                    ),
+                }
+            )
         tampered = client.post(
             "/api/ask",
             json={"question": "what is the risk of changing sensor?", "tamper": 1},
@@ -232,5 +296,5 @@ def test_real_graph_api_ask_smoke_routes_and_tamper() -> None:
         assert tampered.status_code == 200
         assert tampered.json()["tampered_fact_id"]
         assert any(claim["status"] == "CONTRADICTED" for claim in tampered.json()["claims"])
-    print(f"real_graph_api_ask_timings_seconds={timings}")
-    assert len(timings) == 3
+    print(f"real_graph_api_proof_measurements={measurements}")
+    assert len(measurements) == 3

@@ -41,17 +41,19 @@ def test_subgraph_matches_internal_ids_and_includes_edge_endpoints(subgraph_grap
             {"key": "integration:demo"},
         ).result_set[0][0]
     )
+    edge_row = subgraph_graph.ro_query(
+        "MATCH (pr:PR)-[touch:TOUCHES]->(module:Module) "
+        "RETURN id(touch), id(pr), id(module) LIMIT 1",
+        {},
+    ).result_set[0]
     edge_id = int(
-        subgraph_graph.ro_query(
-            "MATCH (pr:PR)-[touch:TOUCHES]->(module:Module) "
-            "RETURN id(touch) LIMIT 1",
-            {},
-        ).result_set[0][0]
+        edge_row[0]
     )
+    edge_endpoint_ids = [int(edge_row[1]), int(edge_row[2])]
 
     result = export_subgraph(
         subgraph_graph,
-        {"node_ids": [module_id], "edge_ids": [edge_id]},
+        {"node_ids": [module_id, *edge_endpoint_ids], "edge_ids": [edge_id]},
     )
 
     assert QUERY_REGISTRY["api.subgraph.nodes_by_id@1"]
@@ -67,21 +69,61 @@ def test_subgraph_matches_internal_ids_and_includes_edge_endpoints(subgraph_grap
     assert result["truncated"] is False
 
 
-def test_subgraph_caps_requested_ids_and_sets_truncated(subgraph_graph) -> None:
-    module_id = int(
-        subgraph_graph.ro_query(
-            "MATCH (module:Module {key: $key}) RETURN id(module)",
-            {"key": "integration:demo"},
-        ).result_set[0][0]
-    )
-    requested_nodes = [module_id, *range(1_000_000, 1_000_149)]
-    requested_edges = list(range(2_000_000, 2_000_301))
+def test_subgraph_keeps_subject_direct_and_top_weighted_elements(subgraph_graph) -> None:
+    keys = ["priority-subject", "priority-direct", "priority-top", "priority-low"]
+    for key in keys:
+        subgraph_graph.query(
+            "CREATE (:Module {key: $key, kind: 'integration', name: $key})",
+            {"key": key},
+        )
+    edge_ids = []
+    for source, target in zip(keys, keys[1:]):
+        subgraph_graph.query(
+            "MATCH (source:Module {key: $source_key}), "
+            "(target:Module {key: $target_key}) "
+            "CREATE (source)-[edge:DEPENDS_ON {kind: 'fixture'}]->(target) "
+            "RETURN id(edge)",
+            {"source_key": source, "target_key": target},
+        )
+        edge_ids.append(
+            int(
+                subgraph_graph.ro_query(
+                    "MATCH (source:Module {key: $source_key})-[edge:DEPENDS_ON]->"
+                    "(target:Module {key: $target_key}) RETURN id(edge)",
+                    {"source_key": source, "target_key": target},
+                ).result_set[0][0]
+            )
+        )
+    module_ids = {
+        str(key): int(node_id)
+        for key, node_id in subgraph_graph.ro_query(
+            "MATCH (module:Module) WHERE module.key IN $keys "
+            "RETURN module.key, id(module)",
+            {"keys": keys},
+        ).result_set
+    }
 
     result = export_subgraph(
         subgraph_graph,
-        {"node_ids": requested_nodes, "edge_ids": requested_edges},
+        {"node_ids": list(module_ids.values()), "edge_ids": edge_ids},
+        max_nodes=3,
+        max_edges=1,
+        priority_node_ids=[module_ids["priority-subject"], module_ids["priority-direct"]],
+        priority_edge_ids=[edge_ids[1]],
+        node_weights={module_ids["priority-top"]: 100.0, module_ids["priority-low"]: 1.0},
     )
 
-    assert len(result["nodes"]) <= MAX_NODES
-    assert len(result["edges"]) <= MAX_EDGES
+    returned_ids = {node["id"] for node in result["nodes"]}
+    assert returned_ids == {
+        module_ids["priority-subject"],
+        module_ids["priority-direct"],
+        module_ids["priority-top"],
+    }
+    assert [edge["id"] for edge in result["edges"]] == [edge_ids[1]]
+    assert result["node_count_total"] == 4
+    assert result["edge_count_total"] == 3
+    assert result["node_count_returned"] == 3
+    assert result["edge_count_returned"] == 1
     assert result["truncated"] is True
+    assert "Showing 3 of 4 evidence nodes" in result["note"]
+    assert "1 of 3 evidence edges" in result["note"]

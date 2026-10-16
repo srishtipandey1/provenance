@@ -24,7 +24,7 @@ from provenance.agents.agent import TOOL_FUNCTIONS, run_agent, validate_tool_arg
 from provenance.agents.llm import llm_available
 from provenance.agents.router import resolve_module, run_question
 from provenance.agents.verifier import VERIFIED, VerifiedAnswer, render_claim_proof
-from provenance.api.subgraph import export_subgraph
+from provenance.api.subgraph import export_claim_subgraph, export_subgraph
 from provenance.config import settings
 from provenance.ingest.graph_loader import DEFAULT_GRAPH
 from provenance.tools.config import DEFAULT_TOOL_CONFIG
@@ -66,7 +66,12 @@ class SubgraphEdge(StrictModel):
 class SubgraphResponse(StrictModel):
     nodes: list[SubgraphNode]
     edges: list[SubgraphEdge]
+    node_count_total: int
+    edge_count_total: int
+    node_count_returned: int
+    edge_count_returned: int
     truncated: bool
+    note: str
 
 
 class ProviderStatus(StrictModel):
@@ -340,11 +345,7 @@ def _as_of_bounds(graph: Any) -> tuple[int, int]:
 
 def _proof_response(graph: Any, claim: Any) -> ProofResponse:
     proof = claim.proof_bundle
-    proof_input = {"node_ids": proof.get("node_ids", []), "edge_ids": proof.get("edge_ids", [])}
-    try:
-        subgraph = export_subgraph(graph, proof_input)
-    except Exception:
-        subgraph = {"nodes": [], "edges": [], "truncated": True}
+    subgraph = export_claim_subgraph(graph, claim)
     try:
         rendered = render_claim_proof(claim) if proof.get("facts") else ""
     except (KeyError, TypeError, ValueError):
