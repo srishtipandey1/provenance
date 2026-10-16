@@ -40,7 +40,7 @@ def agent_graph():
 
 class ScriptedLLM:
     def __init__(self, final_mode: str = "valid", *, injection_sensitive: bool = False) -> None:
-        self.config = SimpleNamespace(max_calls_per_question=4)
+        self.config = SimpleNamespace(max_calls_per_question=3)
         self.final_mode = final_mode
         self.injection_sensitive = injection_sensitive
         self.calls = []
@@ -88,46 +88,35 @@ class ScriptedLLM:
             message["content"]
             for message in reversed(messages)
             if isinstance(message.get("content"), str)
-            and "BEGIN UNTRUSTED GRAPH DATA JSON" in message["content"]
+            and "BEGIN UNTRUSTED GRAPH FACTS JSON" in message["content"]
         )
         fact_data = self._latest_fact_data(fact_block)
-        records = fact_data[0]["facts"]
+        records = fact_data
         count_fact = next(
             (item for item in records if "Distinct PRs touching" in item["text"]),
             records[0],
         )
-        metadata_fact = next(
-            (item for item in records if "Module key, kind" in item["text"]),
-            records[0],
-        )
-        target_fact = next(
-            (item for item in records if "Selected PR author" in item["text"]),
-            None,
-        )
         if self.final_mode == "invalid":
             content = "not json"
-        elif self.final_mode == "invented_number":
+        elif self.final_mode == "invented_summary":
             content = json.dumps(
-                {"claims": [{"text": "integration:demo has 999 PRs.", "fact_ids": [count_fact["fact_id"]]}]}
+                {
+                    "selected_fact_ids": [count_fact["fact_id"]],
+                    "summary": "The module has 999 PRs.",
+                }
             )
-        elif self.final_mode == "wrong_fact":
+        elif self.final_mode == "unknown_ids":
             content = json.dumps(
-                {"claims": [{"text": "integration:demo has 1 PR.", "fact_ids": [metadata_fact["fact_id"]]}]}
-            )
-        elif target_fact is not None:
-            content = json.dumps(
-                {"claims": [{"text": "The target PR metadata was retrieved.", "fact_ids": [target_fact["fact_id"]]}]}
+                {"selected_fact_ids": [count_fact["fact_id"], "missing:fact:F999"]}
             )
         else:
-            content = json.dumps(
-                {"claims": [{"text": "The module metadata was retrieved.", "fact_ids": [metadata_fact["fact_id"]]}]}
-            )
+            content = json.dumps({"selected_fact_ids": [count_fact["fact_id"]]})
         return self._response({"role": "assistant", "content": content})
 
     @staticmethod
     def _latest_fact_data(content: str):
-        start = content.index("BEGIN UNTRUSTED GRAPH DATA JSON\n") + len("BEGIN UNTRUSTED GRAPH DATA JSON\n")
-        end = content.index("\nEND UNTRUSTED GRAPH DATA JSON", start)
+        start = content.index("BEGIN UNTRUSTED GRAPH FACTS JSON\n") + len("BEGIN UNTRUSTED GRAPH FACTS JSON\n")
+        end = content.index("\nEND UNTRUSTED GRAPH FACTS JSON", start)
         return json.loads(content[start:end])
 
     @staticmethod
@@ -150,44 +139,61 @@ def test_agent_validates_arguments_resolves_module_and_verifies(agent_graph) -> 
     assert llm.selected_tools == ["module_profile"]
     assert answer.answer is not None
     assert answer.answer.summary_counts["VERIFIED"] == 1
-    assert answer.answer.final_answer == "The module metadata was retrieved."
+    assert answer.answer.claims[0].text == next(
+        item["text"]
+        for item in ScriptedLLM._latest_fact_data(
+            next(
+                message["content"]
+                for call in llm.calls
+                for message in call["messages"]
+                if isinstance(message.get("content"), str)
+                and "BEGIN UNTRUSTED GRAPH FACTS JSON" in message["content"]
+            )
+        )
+        if "Distinct PRs touching" in item["text"]
+    )
 
 
-def test_model_invented_number_is_unsupported(agent_graph) -> None:
+def test_invented_summary_is_removed_while_fact_claim_stays(agent_graph) -> None:
     answer = run_agent(
         agent_graph,
         "Tell me about the demo integration",
-        client=ScriptedLLM("invented_number"),
+        client=ScriptedLLM("invented_summary"),
     )
 
     assert answer.answer is not None
     assert answer.answer.summary_counts["UNSUPPORTED"] == 1
-    assert answer.answer.final_answer == ""
-    assert answer.answer.removed_claims[0]["claim_id"] == "C1"
+    assert answer.answer.summary_counts["VERIFIED"] == 1
+    assert answer.answer.final_answer
+    assert answer.answer.removed_claims[0]["claim_id"] == "C2"
+    assert any("999" in reason for reason in answer.answer.removed_claims[0]["reasons"])
 
 
-def test_model_citing_wrong_fact_is_unsupported(agent_graph) -> None:
+def test_unknown_fact_ids_are_ignored_and_counted(agent_graph) -> None:
     answer = run_agent(
         agent_graph,
         "Tell me about the demo integration",
-        client=ScriptedLLM("wrong_fact"),
+        client=ScriptedLLM("unknown_ids"),
     )
 
     assert answer.answer is not None
-    assert answer.answer.claims[0].status == "UNSUPPORTED"
-    assert any("not grounded" in reason for reason in answer.answer.claims[0].reasons)
+    assert answer.answer.claims[0].status == "VERIFIED"
+    assert answer.ignored_fact_ids == ["missing:fact:F999"]
 
 
-def test_invalid_json_falls_back_after_two_attempts(agent_graph) -> None:
+def test_invalid_json_falls_back_after_two_attempts_without_rerunning_tools(agent_graph) -> None:
     answer = run_agent(
         agent_graph,
         "Tell me about the demo integration",
         client=ScriptedLLM("invalid"),
+        max_tool_rounds=1,
     )
 
     assert answer.mode == "deterministic-fallback"
     assert answer.fallback_reason
-    assert answer.llm_calls <= 4
+    assert answer.llm_calls == 3
+    assert answer.answer is not None
+    assert answer.answer.summary_counts["VERIFIED"] > 0
 
 
 def test_pr_title_injection_is_not_sent_as_instructions_or_verified(agent_graph) -> None:

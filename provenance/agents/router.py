@@ -62,6 +62,27 @@ class RoutedAnswer:
     tampered_fact_id: str | None = None
 
 
+class _MissingReusableTool(RuntimeError):
+    pass
+
+
+class _ReusableResults(list[ToolResult]):
+    def __init__(self, reusable: list[ToolResult]) -> None:
+        super().__init__()
+        self.reusable = reusable
+
+    def take(self, tool_name: str, args: dict[str, Any]) -> ToolResult:
+        for result in self.reusable:
+            if result.tool == tool_name and all(
+                result.args.get(key) == value for key, value in args.items()
+            ):
+                self.reusable.remove(result)
+                return result
+        raise _MissingReusableTool(
+            f"No precomputed {tool_name} result matches the deterministic route."
+        )
+
+
 def _normalize_module(value: str) -> str:
     words = re.findall(r"[a-z0-9]+", value.casefold().replace("_", " "))
     return " ".join(word for word in words if word not in _GENERIC_MODULE_WORDS)
@@ -144,6 +165,13 @@ def _execute(
     results: list[ToolResult],
     timings: list[dict[str, Any]],
 ) -> ToolResult:
+    if isinstance(results, _ReusableResults):
+        result = results.take(tool_name, args)
+        results.append(result)
+        timings.append(
+            {"tool": tool_name, "args": args, "seconds": 0.0, "reused": True}
+        )
+        return result
     started = time.perf_counter()
     result = call()
     timings.append(
@@ -503,30 +531,41 @@ def _classify(question: str) -> str | None:
     return None
 
 
-def run_question(graph: Any, question: str, *, tamper_n: int | None = None) -> RoutedAnswer:
+def run_question(
+    graph: Any,
+    question: str,
+    *,
+    tamper_n: int | None = None,
+    reuse_results: list[ToolResult] | None = None,
+) -> RoutedAnswer:
     route = _classify(question)
     timings: list[dict[str, Any]] = []
-    results: list[ToolResult] = []
+    results: list[ToolResult] = (
+        _ReusableResults(list(reuse_results)) if reuse_results is not None else []
+    )
     claims: list[Claim] = []
     if route is None:
         supported = "Supported questions:\n- " + "\n- ".join(SUPPORTED_QUESTIONS)
         return RoutedAnswer(question, None, timings, unsupported_message=supported)
 
-    if route == "risk":
-        message = _risk_module(graph, question, results, timings, claims)
-    elif route == "reviewer":
-        message = _reviewer_claim(graph, question, results, timings, claims)
-    elif route == "maintainer":
-        message = _maintainer_claim(graph, question, results, timings, claims)
-    elif route == "owner":
-        message = _owner_claim(graph, question, results, timings, claims)
-    elif route == "blast":
-        message = _blast_claim(graph, question, results, timings, claims)
-    elif route == "top_risk":
-        _top_risk_claims(graph, results, timings, claims)
-        message = None
-    else:
-        message = _decision_claim(graph, question, results, timings, claims)
+    try:
+        if route == "risk":
+            message = _risk_module(graph, question, results, timings, claims)
+        elif route == "reviewer":
+            message = _reviewer_claim(graph, question, results, timings, claims)
+        elif route == "maintainer":
+            message = _maintainer_claim(graph, question, results, timings, claims)
+        elif route == "owner":
+            message = _owner_claim(graph, question, results, timings, claims)
+        elif route == "blast":
+            message = _blast_claim(graph, question, results, timings, claims)
+        elif route == "top_risk":
+            _top_risk_claims(graph, results, timings, claims)
+            message = None
+        else:
+            message = _decision_claim(graph, question, results, timings, claims)
+    except _MissingReusableTool as error:
+        return RoutedAnswer(question, None, timings, unsupported_message=str(error))
 
     if message:
         return RoutedAnswer(question, None, timings, unsupported_message=message)

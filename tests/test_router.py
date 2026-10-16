@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from falkordb import FalkorDB
 
 from provenance.config import settings
+import provenance.agents.agent as agent_module
+from provenance.agents.agent import run_agent
+from provenance.agents.llm import LLMBudget, LLMResponse
 from provenance.ingest.graph_loader import delete_graph_if_exists, load_graph
 from provenance.agents.router import run_question
 from provenance.agents.verifier import VERIFIED
+from provenance.tools.analysis import maintainer_loss
 from provenance.tools.queries import QUERY_REGISTRY
 
 
@@ -124,6 +130,96 @@ def test_unknown_question_returns_supported_question_list(router_graph) -> None:
     assert routed.answer is None
     assert routed.unsupported_message
     assert "who should review PR <number>?" in routed.unsupported_message
+
+
+def test_router_reuses_precomputed_maintainer_tool_result(router_graph, monkeypatch) -> None:
+    result = maintainer_loss(router_graph, person_login="solo-maintainer")
+
+    def unexpected_tool_call(*args, **kwargs):
+        raise AssertionError("fallback reran maintainer_loss")
+
+    monkeypatch.setattr("provenance.agents.router.maintainer_loss", unexpected_tool_call)
+    routed = run_question(
+        router_graph,
+        "what happens if solo-maintainer leaves?",
+        reuse_results=[result],
+    )
+
+    assert routed.answer is not None
+    assert routed.answer.summary_counts[VERIFIED] == len(routed.answer.claims)
+    assert "solo-maintainer" in routed.answer.final_answer
+    assert any(item.get("reused") for item in routed.tool_timings)
+
+
+def test_agent_parse_fallback_reuses_maintainer_result(router_graph, monkeypatch) -> None:
+    class InvalidFactSelection:
+        config = SimpleNamespace(max_calls_per_question=3)
+
+        def __init__(self) -> None:
+            self.tool_calls = 0
+
+        def chat(self, messages, *, tools=None, response_format=None, budget):
+            budget.consume()
+            if tools is not None:
+                self.tool_calls += 1
+                return LLMResponse(
+                    provider="mock",
+                    model="mock-model",
+                    data={
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [
+                                        {
+                                            "id": "maintainer-call",
+                                            "type": "function",
+                                            "function": {
+                                                "name": "maintainer_loss",
+                                                "arguments": json.dumps(
+                                                    {"person_login": "solo-maintainer"}
+                                                ),
+                                            },
+                                        }
+                                    ],
+                                }
+                            }
+                        ]
+                    },
+                )
+            return LLMResponse(
+                provider="mock",
+                model="mock-model",
+                data={"choices": [{"message": {"role": "assistant", "content": "not json"}}]},
+            )
+
+    executions = 0
+    original = agent_module.TOOL_FUNCTIONS["maintainer_loss"]
+
+    def counted_execution(*args, **kwargs):
+        nonlocal executions
+        executions += 1
+        return original(*args, **kwargs)
+
+    def unexpected_rerun(*args, **kwargs):
+        raise AssertionError("deterministic fallback reran maintainer_loss")
+
+    monkeypatch.setitem(agent_module.TOOL_FUNCTIONS, "maintainer_loss", counted_execution)
+    monkeypatch.setattr("provenance.agents.router.maintainer_loss", unexpected_rerun)
+    answer = run_agent(
+        router_graph,
+        "what happens if solo-maintainer leaves?",
+        client=InvalidFactSelection(),
+        max_tool_rounds=1,
+    )
+
+    assert answer.mode == "deterministic-fallback"
+    assert answer.llm_calls == 3
+    assert executions == 1
+    assert answer.answer is not None
+    assert answer.answer.summary_counts[VERIFIED] == 1
+    assert "solo-maintainer leaves" in answer.answer.final_answer
 
 
 def test_tamper_hook_contradicts_a_cited_fact(router_graph) -> None:
