@@ -1,0 +1,1377 @@
+{
+  "as_of_ts": 1792058964,
+  "candidate_pool": {
+    "module_count": 30,
+    "rule": "Union of the top 15 modules by review concentration and top 15 by PageRank."
+  },
+  "graph": "provenance_ha",
+  "normalization": {
+    "blast_radius_max_dependent_count": 1146,
+    "criticality_max_page_rank": 0.101246170699596
+  },
+  "score_formula": "weighted average of bus-factor top-person review share, ownership drift score, PageRank normalized by the candidate maximum, and distinct reverse-dependent count normalized by the candidate maximum",
+  "single_person_risks": [
+    {
+      "person_login": "epenet",
+      "reviewed_pr_count": 244,
+      "top_three_affected_modules": [
+        {
+          "became_uncovered": true,
+          "dependent_count": 456,
+          "module_key": "integration:binary_sensor"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 435,
+          "module_key": "integration:light"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 380,
+          "module_key": "integration:switch"
+        }
+      ],
+      "total_dependents_affected": 2297,
+      "uncovered_module_count": 21
+    },
+    {
+      "person_login": "frenck",
+      "reviewed_pr_count": 552,
+      "top_three_affected_modules": [
+        {
+          "became_uncovered": true,
+          "dependent_count": 407,
+          "module_key": "integration:websocket_api"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 154,
+          "module_key": "integration:input_select"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 81,
+          "module_key": "integration:auth"
+        }
+      ],
+      "total_dependents_affected": 928,
+      "uncovered_module_count": 91
+    },
+    {
+      "person_login": "erwindouna",
+      "reviewed_pr_count": 616,
+      "top_three_affected_modules": [
+        {
+          "became_uncovered": true,
+          "dependent_count": 8,
+          "module_key": "integration:homeassistant_hardware"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 4,
+          "module_key": "integration:plex"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 2,
+          "module_key": "integration:file"
+        }
+      ],
+      "total_dependents_affected": 14,
+      "uncovered_module_count": 70
+    },
+    {
+      "person_login": "joostlek",
+      "reviewed_pr_count": 1241,
+      "top_three_affected_modules": [
+        {
+          "became_uncovered": true,
+          "dependent_count": 0,
+          "module_key": "integration:backblaze_b2"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 0,
+          "module_key": "integration:cielo_home"
+        },
+        {
+          "became_uncovered": true,
+          "dependent_count": 0,
+          "module_key": "integration:google_air_quality"
+        }
+      ],
+      "total_dependents_affected": 0,
+      "uncovered_module_count": 6
+    },
+    {
+      "person_login": "balloob",
+      "reviewed_pr_count": 409,
+      "top_three_affected_modules": [
+        {
+          "became_uncovered": true,
+          "dependent_count": 0,
+          "module_key": "integration:samsung_exlink"
+        }
+      ],
+      "total_dependents_affected": 0,
+      "uncovered_module_count": 1
+    }
+  ],
+  "tool_call_timings": [
+    {
+      "seconds": 0.6498,
+      "tool": "bus_factor",
+      "top_n": 15
+    },
+    {
+      "seconds": 0.1037,
+      "tool": "criticality",
+      "top_n": 2000
+    },
+    {
+      "module_key": "homeassistant/generated",
+      "seconds": 0.0443,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "homeassistant/generated",
+      "seconds": 0.0482,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "homeassistant/generated",
+      "seconds": 0.0057,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "homeassistant/helpers",
+      "seconds": 0.0415,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "homeassistant/helpers",
+      "seconds": 0.0486,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "homeassistant/helpers",
+      "seconds": 0.0051,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "homeassistant/package_constraints.txt",
+      "seconds": 0.0303,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "homeassistant/package_constraints.txt",
+      "seconds": 0.0341,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "homeassistant/package_constraints.txt",
+      "seconds": 0.0051,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:.github",
+      "seconds": 0.0379,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:.github",
+      "seconds": 0.0337,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:.github",
+      "seconds": 0.0048,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:CODEOWNERS",
+      "seconds": 0.0403,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:CODEOWNERS",
+      "seconds": 0.0447,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:CODEOWNERS",
+      "seconds": 0.0053,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:pyproject.toml",
+      "seconds": 0.0273,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:pyproject.toml",
+      "seconds": 0.0318,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:pyproject.toml",
+      "seconds": 0.0059,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:requirements.txt",
+      "seconds": 0.0261,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:requirements.txt",
+      "seconds": 0.0304,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:requirements.txt",
+      "seconds": 0.0046,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:requirements_all.txt",
+      "seconds": 0.1187,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:requirements_all.txt",
+      "seconds": 0.1261,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:requirements_all.txt",
+      "seconds": 0.0056,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:script",
+      "seconds": 0.0328,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:script",
+      "seconds": 0.0394,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:script",
+      "seconds": 0.005,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "infra:tests",
+      "seconds": 0.0556,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "infra:tests",
+      "seconds": 0.0603,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "infra:tests",
+      "seconds": 0.0047,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:binary_sensor",
+      "seconds": 0.0176,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:binary_sensor",
+      "seconds": 0.0243,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:binary_sensor",
+      "seconds": 0.5084,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:bosch_shc",
+      "seconds": 0.0265,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:bosch_shc",
+      "seconds": 0.0321,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:bosch_shc",
+      "seconds": 0.0047,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:cloud",
+      "seconds": 0.0319,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:cloud",
+      "seconds": 0.029,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:cloud",
+      "seconds": 0.2888,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:device_automation",
+      "seconds": 0.019,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:device_automation",
+      "seconds": 0.0258,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:device_automation",
+      "seconds": 0.6212,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:homeassistant",
+      "seconds": 0.0244,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:homeassistant",
+      "seconds": 0.0291,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:homeassistant",
+      "seconds": 0.6116,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:http",
+      "seconds": 0.021,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:http",
+      "seconds": 0.0264,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:http",
+      "seconds": 0.5778,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:knx",
+      "seconds": 0.0297,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:knx",
+      "seconds": 0.0337,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:knx",
+      "seconds": 0.0049,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:light",
+      "seconds": 0.0177,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:light",
+      "seconds": 0.0238,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:light",
+      "seconds": 0.5286,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:llm",
+      "seconds": 0.0179,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:llm",
+      "seconds": 0.0239,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:llm",
+      "seconds": 0.546,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:logbook",
+      "seconds": 0.0194,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:logbook",
+      "seconds": 0.0245,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:logbook",
+      "seconds": 0.2655,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:matter",
+      "seconds": 0.028,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:matter",
+      "seconds": 0.0349,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:matter",
+      "seconds": 0.0405,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:midea",
+      "seconds": 0.0329,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:midea",
+      "seconds": 0.0372,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:midea",
+      "seconds": 0.0046,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:mqtt",
+      "seconds": 0.027,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:mqtt",
+      "seconds": 0.0321,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:mqtt",
+      "seconds": 0.0461,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:network",
+      "seconds": 0.0168,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:network",
+      "seconds": 0.0222,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:network",
+      "seconds": 0.3685,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:notify",
+      "seconds": 0.0186,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:notify",
+      "seconds": 0.0246,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:notify",
+      "seconds": 0.3377,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:recorder",
+      "seconds": 0.021,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:recorder",
+      "seconds": 0.0267,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:recorder",
+      "seconds": 0.5707,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:repairs",
+      "seconds": 0.0191,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:repairs",
+      "seconds": 0.0248,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:repairs",
+      "seconds": 0.5513,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:scene",
+      "seconds": 0.0174,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:scene",
+      "seconds": 0.0227,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:scene",
+      "seconds": 0.2473,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:sensor",
+      "seconds": 0.0211,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:sensor",
+      "seconds": 0.0275,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:sensor",
+      "seconds": 0.5491,
+      "tool": "blast_radius"
+    },
+    {
+      "module_key": "integration:websocket_api",
+      "seconds": 0.0204,
+      "tool": "bus_factor"
+    },
+    {
+      "module_key": "integration:websocket_api",
+      "seconds": 0.0251,
+      "tool": "ownership_drift"
+    },
+    {
+      "max_depth": 2,
+      "module_key": "integration:websocket_api",
+      "seconds": 0.5802,
+      "tool": "blast_radius"
+    },
+    {
+      "seconds": 0.069,
+      "tool": "maintainer.top_reviewers",
+      "top_n": 10
+    },
+    {
+      "person_login": "joostlek",
+      "seconds": 0.799,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "silamon",
+      "seconds": 0.7002,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "erwindouna",
+      "seconds": 0.8197,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "zweckj",
+      "seconds": 0.7513,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "frenck",
+      "seconds": 0.8657,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "balloob",
+      "seconds": 0.7042,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "martinhjelmare",
+      "seconds": 0.7152,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "epenet",
+      "seconds": 0.8301,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "justanotherariel",
+      "seconds": 0.551,
+      "tool": "maintainer_loss"
+    },
+    {
+      "person_login": "thejulianjes",
+      "seconds": 0.5784,
+      "tool": "maintainer_loss"
+    },
+    {
+      "module_key": "integration:homeassistant",
+      "seconds": 0.0274,
+      "tool": "criticality.score_fact"
+    },
+    {
+      "module_key": "integration:sensor",
+      "seconds": 0.0279,
+      "tool": "criticality.score_fact"
+    },
+    {
+      "module_key": "integration:device_automation",
+      "seconds": 0.028,
+      "tool": "criticality.score_fact"
+    },
+    {
+      "module_key": "integration:http",
+      "seconds": 0.0283,
+      "tool": "criticality.score_fact"
+    },
+    {
+      "module_key": "homeassistant/generated",
+      "seconds": 0.0269,
+      "tool": "criticality.score_fact"
+    }
+  ],
+  "tool_calls_over_2_seconds": [],
+  "top_10_reviewers_fact": {
+    "fact_id": "F19",
+    "query_id": "maintainer.top_reviewers@1",
+    "text": "Ten most active human reviewers in the configured activity window.",
+    "value": [
+      {
+        "login": "joostlek",
+        "reviewed_pr_count": 1241
+      },
+      {
+        "login": "silamon",
+        "reviewed_pr_count": 766
+      },
+      {
+        "login": "erwindouna",
+        "reviewed_pr_count": 616
+      },
+      {
+        "login": "zweckj",
+        "reviewed_pr_count": 564
+      },
+      {
+        "login": "frenck",
+        "reviewed_pr_count": 552
+      },
+      {
+        "login": "balloob",
+        "reviewed_pr_count": 409
+      },
+      {
+        "login": "martinhjelmare",
+        "reviewed_pr_count": 359
+      },
+      {
+        "login": "epenet",
+        "reviewed_pr_count": 244
+      },
+      {
+        "login": "justanotherariel",
+        "reviewed_pr_count": 171
+      },
+      {
+        "login": "thejulianjes",
+        "reviewed_pr_count": 162
+      }
+    ]
+  },
+  "top_15_modules": [
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.15789473684210525,
+      "components": {
+        "blast_radius_normalized": 0.987783595113438,
+        "bus_factor_concentration": 0.15789473684210525,
+        "criticality_normalized": 1.0,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 1132,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:homeassistant",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.101246170699596,
+      "risk_score": 0.4034306971617526,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.23529411764705882,
+      "components": {
+        "blast_radius_normalized": 0.7626527050610821,
+        "bus_factor_concentration": 0.23529411764705882,
+        "criticality_normalized": 0.9300242968023287,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 874,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:sensor",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0941613987088203,
+      "risk_score": 0.3827557062960987,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.17647058823529413,
+      "components": {
+        "blast_radius_normalized": 1.0,
+        "bus_factor_concentration": 0.17647058823529413,
+        "criticality_normalized": 0.6296671926055677,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 1146,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:device_automation",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0637513920664787,
+      "risk_score": 0.3376981444034665,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.175,
+      "components": {
+        "blast_radius_normalized": 0.49825479930191974,
+        "bus_factor_concentration": 0.175,
+        "criticality_normalized": 0.8793991271342342,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 571,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:http",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0890357941389084,
+      "risk_score": 0.31186804532213486,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.38636363636363635,
+      "components": {
+        "blast_radius_normalized": 0.0,
+        "bus_factor_concentration": 0.38636363636363635,
+        "criticality_normalized": 0.0013505511644373394,
+        "ownership_drift": 0.4
+      },
+      "dependent_count": 0,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": true
+      },
+      "module_key": "homeassistant/generated",
+      "ownerless": true,
+      "ownership_drift": 0.4,
+      "page_rank": 0.000136738133733161,
+      "risk_score": 0.2554973829601603,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.35668789808917195,
+      "components": {
+        "blast_radius_normalized": 0.0,
+        "bus_factor_concentration": 0.35668789808917195,
+        "criticality_normalized": 0.0,
+        "ownership_drift": 0.4
+      },
+      "dependent_count": 0,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": true
+      },
+      "module_key": "infra:CODEOWNERS",
+      "ownerless": true,
+      "ownership_drift": 0.4,
+      "page_rank": 0.0,
+      "risk_score": 0.2448407643312102,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.375,
+      "components": {
+        "blast_radius_normalized": 0.4075043630017452,
+        "bus_factor_concentration": 0.375,
+        "criticality_normalized": 0.2192071311044928,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 467,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:llm",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0221938826143742,
+      "risk_score": 0.23621708067116035,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.5,
+      "components": {
+        "blast_radius_normalized": 0.11954624781849912,
+        "bus_factor_concentration": 0.5,
+        "criticality_normalized": 0.200833525216037,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 137,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:network",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0203336253762245,
+      "risk_score": 0.23309864221598228,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.3,
+      "components": {
+        "blast_radius_normalized": 0.23472949389179756,
+        "bus_factor_concentration": 0.3,
+        "criticality_normalized": 0.42945402067299915,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 269,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:repairs",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0434805750846863,
+      "risk_score": 0.22610022821836948,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.3333333333333333,
+      "components": {
+        "blast_radius_normalized": 0.3787085514834206,
+        "bus_factor_concentration": 0.3333333333333333,
+        "criticality_normalized": 0.2540776270213827,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 434,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:light",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0257243867963552,
+      "risk_score": 0.22428847479345632,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.11538461538461539,
+      "components": {
+        "blast_radius_normalized": 0.3551483420593368,
+        "bus_factor_concentration": 0.11538461538461539,
+        "criticality_normalized": 0.6495155541259735,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 407,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:websocket_api",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.065760962665081,
+      "risk_score": 0.22355997751871062,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.16216216216216217,
+      "components": {
+        "blast_radius_normalized": 0.7033158813263525,
+        "bus_factor_concentration": 0.16216216216216217,
+        "criticality_normalized": 0.2855678414450609,
+        "ownership_drift": 0.0
+      },
+      "dependent_count": 806,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:recorder",
+      "ownerless": false,
+      "ownership_drift": 0.0,
+      "page_rank": 0.0289126504212618,
+      "risk_score": 0.21936770724472185,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.35,
+      "components": {
+        "blast_radius_normalized": 0.0,
+        "bus_factor_concentration": 0.35,
+        "criticality_normalized": 0.0013505511644373394,
+        "ownership_drift": 0.3
+      },
+      "dependent_count": 0,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:bosch_shc",
+      "ownerless": false,
+      "ownership_drift": 0.3,
+      "page_rank": 0.000136738133733161,
+      "risk_score": 0.21277011023288747,
+      "stale_declared_owners": [
+        "tschamm"
+      ]
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.21296296296296297,
+      "components": {
+        "blast_radius_normalized": 0.0,
+        "bus_factor_concentration": 0.21296296296296297,
+        "criticality_normalized": 0.0,
+        "ownership_drift": 0.4
+      },
+      "dependent_count": 0,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": true
+      },
+      "module_key": "infra:requirements.txt",
+      "ownerless": true,
+      "ownership_drift": 0.4,
+      "page_rank": 0.0,
+      "risk_score": 0.19453703703703704,
+      "stale_declared_owners": []
+    },
+    {
+      "bus_factor_risk": false,
+      "bus_factor_share": 0.20522388059701493,
+      "components": {
+        "blast_radius_normalized": 0.0,
+        "bus_factor_concentration": 0.20522388059701493,
+        "criticality_normalized": 0.0013505511644373394,
+        "ownership_drift": 0.4
+      },
+      "dependent_count": 0,
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": true
+      },
+      "module_key": "homeassistant/helpers",
+      "ownerless": true,
+      "ownership_drift": 0.4,
+      "page_rank": 0.000136738133733161,
+      "risk_score": 0.19209846844184272,
+      "stale_declared_owners": []
+    }
+  ],
+  "top_5_exact_facts": [
+    {
+      "facts": [
+        {
+          "fact_id": "F19",
+          "query_id": "bus_factor.inputs@1",
+          "text": "Modules ranked by the highest person's share of human review PR pairs; a risk flag uses configured minimum PR/share thresholds.",
+          "value": [
+            [
+              "integration:homeassistant",
+              39,
+              57,
+              "martinhjelmare",
+              9,
+              0.15789473684210525,
+              false
+            ]
+          ]
+        },
+        {
+          "fact_id": "F21",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownerless, stale-owner, and declared-owner-outside-top-five flags for this module.",
+          "value": [
+            false,
+            [],
+            []
+          ]
+        },
+        {
+          "fact_id": "F22",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownership drift score: weighted sum of ownerless status, stale-person-owner share, and person-owner-outside-top-five share; weights are pinned configuration facts.",
+          "value": 0.0
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "criticality.page_rank@1",
+          "text": "PageRank score for integration:homeassistant in the dependency graph.",
+          "value": 0.101246170699596
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "blast.paths.depth2@1",
+          "text": "Distinct reverse dependency modules within 2 dependency hops.",
+          "value": 1132
+        }
+      ],
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:homeassistant",
+      "risk_score": 0.4034306971617526
+    },
+    {
+      "facts": [
+        {
+          "fact_id": "F19",
+          "query_id": "bus_factor.inputs@1",
+          "text": "Modules ranked by the highest person's share of human review PR pairs; a risk flag uses configured minimum PR/share thresholds.",
+          "value": [
+            [
+              "integration:sensor",
+              14,
+              17,
+              "markus98",
+              4,
+              0.23529411764705882,
+              false
+            ]
+          ]
+        },
+        {
+          "fact_id": "F21",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownerless, stale-owner, and declared-owner-outside-top-five flags for this module.",
+          "value": [
+            false,
+            [],
+            []
+          ]
+        },
+        {
+          "fact_id": "F22",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownership drift score: weighted sum of ownerless status, stale-person-owner share, and person-owner-outside-top-five share; weights are pinned configuration facts.",
+          "value": 0.0
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "criticality.page_rank@1",
+          "text": "PageRank score for integration:sensor in the dependency graph.",
+          "value": 0.0941613987088203
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "blast.paths.depth2@1",
+          "text": "Distinct reverse dependency modules within 2 dependency hops.",
+          "value": 874
+        }
+      ],
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:sensor",
+      "risk_score": 0.3827557062960987
+    },
+    {
+      "facts": [
+        {
+          "fact_id": "F19",
+          "query_id": "bus_factor.inputs@1",
+          "text": "Modules ranked by the highest person's share of human review PR pairs; a risk flag uses configured minimum PR/share thresholds.",
+          "value": [
+            [
+              "integration:device_automation",
+              9,
+              17,
+              "arturpragacz",
+              3,
+              0.17647058823529413,
+              false
+            ]
+          ]
+        },
+        {
+          "fact_id": "F21",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownerless, stale-owner, and declared-owner-outside-top-five flags for this module.",
+          "value": [
+            false,
+            [],
+            []
+          ]
+        },
+        {
+          "fact_id": "F22",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownership drift score: weighted sum of ownerless status, stale-person-owner share, and person-owner-outside-top-five share; weights are pinned configuration facts.",
+          "value": 0.0
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "criticality.page_rank@1",
+          "text": "PageRank score for integration:device_automation in the dependency graph.",
+          "value": 0.0637513920664787
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "blast.paths.depth2@1",
+          "text": "Distinct reverse dependency modules within 2 dependency hops.",
+          "value": 1146
+        }
+      ],
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:device_automation",
+      "risk_score": 0.3376981444034665
+    },
+    {
+      "facts": [
+        {
+          "fact_id": "F19",
+          "query_id": "bus_factor.inputs@1",
+          "text": "Modules ranked by the highest person's share of human review PR pairs; a risk flag uses configured minimum PR/share thresholds.",
+          "value": [
+            [
+              "integration:http",
+              28,
+              40,
+              "martinhjelmare",
+              7,
+              0.175,
+              false
+            ]
+          ]
+        },
+        {
+          "fact_id": "F21",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownerless, stale-owner, and declared-owner-outside-top-five flags for this module.",
+          "value": [
+            false,
+            [],
+            []
+          ]
+        },
+        {
+          "fact_id": "F22",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownership drift score: weighted sum of ownerless status, stale-person-owner share, and person-owner-outside-top-five share; weights are pinned configuration facts.",
+          "value": 0.0
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "criticality.page_rank@1",
+          "text": "PageRank score for integration:http in the dependency graph.",
+          "value": 0.0890357941389084
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "blast.paths.depth2@1",
+          "text": "Distinct reverse dependency modules within 2 dependency hops.",
+          "value": 571
+        }
+      ],
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": true,
+        "has_reverse_dependents": true,
+        "missing_or_stale_owner": false
+      },
+      "module_key": "integration:http",
+      "risk_score": 0.31186804532213486
+    },
+    {
+      "facts": [
+        {
+          "fact_id": "F19",
+          "query_id": "bus_factor.inputs@1",
+          "text": "Modules ranked by the highest person's share of human review PR pairs; a risk flag uses configured minimum PR/share thresholds.",
+          "value": [
+            [
+              "homeassistant/generated",
+              125,
+              176,
+              "joostlek",
+              68,
+              0.38636363636363635,
+              false
+            ]
+          ]
+        },
+        {
+          "fact_id": "F21",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownerless, stale-owner, and declared-owner-outside-top-five flags for this module.",
+          "value": [
+            true,
+            [],
+            []
+          ]
+        },
+        {
+          "fact_id": "F22",
+          "query_id": "ownership.drift.inputs@1",
+          "text": "Ownership drift score: weighted sum of ownerless status, stale-person-owner share, and person-owner-outside-top-five share; weights are pinned configuration facts.",
+          "value": 0.4
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "criticality.page_rank@1",
+          "text": "PageRank score for homeassistant/generated in the dependency graph.",
+          "value": 0.000136738133733161
+        },
+        {
+          "fact_id": "F19",
+          "query_id": "blast.paths.depth2@1",
+          "text": "Distinct reverse dependency modules within 2 dependency hops.",
+          "value": 0
+        }
+      ],
+      "flags": {
+        "bus_factor": false,
+        "criticality_top_15": false,
+        "has_reverse_dependents": false,
+        "missing_or_stale_owner": true
+      },
+      "module_key": "homeassistant/generated",
+      "risk_score": 0.2554973829601603
+    }
+  ],
+  "weights": {
+    "blast_radius": 0.15,
+    "bus_factor": 0.35,
+    "criticality": 0.2,
+    "ownership_drift": 0.3
+  }
+}
