@@ -14,6 +14,7 @@ export function AskPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resp, setResp] = useState<AskResponse | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   async function submit(q: string) {
     const trimmed = q.trim();
@@ -30,109 +31,157 @@ export function AskPanel() {
     }
   }
 
+  const verified = (resp?.claims ?? []).filter(
+    (c) => c.status.toUpperCase() === "VERIFIED",
+  ).length;
+
   return (
-    <section className="card" aria-label="Natural language query">
-      <h2>Ask the graph</h2>
-      <p className="muted small">
-        Deterministic mode only. Claims are machine-checked; only claims with status VERIFIED
-        count as verified.
-      </p>
-      <div className="row" aria-label="Example questions">
-        {EXAMPLES.map((ex) => (
-          <button
-            key={ex}
-            className="ghost example-btn"
-            type="button"
-            onClick={() => {
-              setQuestion(ex);
-              void submit(ex);
-            }}
-          >
-            {ex}
-          </button>
-        ))}
+    <section className="section" aria-label="Ask the graph">
+      <div className="sec-head">
+        <h2>
+          <span className="sec-no">01</span>Ask the graph
+        </h2>
+        <span className="hint">deterministic · GRAPH.RO_QUERY only</span>
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit(question);
-        }}
-      >
-        <label htmlFor="ask-q" className="small muted">
-          Question (max 300 chars)
-        </label>
-        <textarea
-          id="ask-q"
-          rows={2}
-          maxLength={300}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-        />
-        <div className="row" style={{ marginTop: 8 }}>
-          <button type="submit" disabled={loading || !question.trim()}>
-            {loading ? "Asking…" : "Ask"}
-          </button>
-          {resp && (
-            <span className="muted small">
-              mode {resp.mode} · {resp.claims.length} claim(s) · {resp.removed_claims.length}{" "}
-              removed
-            </span>
-          )}
-        </div>
-      </form>
-      {loading && <p className="spin">Running verified tools against FalkorDB…</p>}
-      {error && (
-        <p className="alert error" role="alert">
-          Ask failed: {error}
-        </p>
-      )}
-      {resp && (
-        <div style={{ marginTop: 8 }}>
-          <h3>Answer</h3>
-          <p>{resp.answer || <span className="muted">No verified answer returned.</span>}</p>
-          {resp.removed_claims.length > 0 && (
-            <p className="alert warn">
-              {resp.removed_claims.length} claim(s) were removed by the verifier and are not
-              shown as verified.
-            </p>
-          )}
-          <h3>Claims ({resp.claims.length})</h3>
-          {resp.claims.length === 0 && <p className="muted">No claims.</p>}
-          {resp.claims.map((c) => {
-            const tone = statusTone(c.status);
-            const sg = c.proof?.subgraph;
-            return (
-              <article key={c.claim_id} className="claim">
-                <span className={`badge ${tone}`}>{c.status}</span>{" "}
-                <strong className="small">{c.claim_id}</strong>
-                <p>{c.text}</p>
-                {c.caveats?.length > 0 && (
-                  <p className="small muted">Caveats: {c.caveats.join("; ")}</p>
-                )}
-                {c.reasons?.length > 0 && (
-                  <p className="small muted">Checks: {c.reasons.join("; ")}</p>
-                )}
-                <details>
-                  <summary className="small">Proof ({c.proof?.query_ids?.join(", ") || "no query"})</summary>
-                  {c.proof?.caveats?.length > 0 && (
-                    <p className="small muted">Proof caveats: {c.proof.caveats.join("; ")}</p>
-                  )}
-                  {sg && (
-                    <p className="small muted">
-                      Subgraph: {truncatedLabel(sg.truncated, sg.edge_count_total, sg.edge_count_returned)}{" "}
-                      (nodes {sg.node_count_returned}/{sg.node_count_total}, edges{" "}
-                      {sg.edge_count_returned}/{sg.edge_count_total}). {sg.note}
+      <div className="sec-body">
+        <ol className="ex-list">
+          {EXAMPLES.map((ex, i) => (
+            <li
+              key={ex}
+              onClick={() => {
+                setQuestion(ex);
+                void submit(ex);
+              }}
+            >
+              <span className="idx">{String(i + 1).padStart(2, "0")}</span>
+              <button
+                type="button"
+                className="linklike q"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setQuestion(ex);
+                  void submit(ex);
+                }}
+              >
+                {ex}
+              </button>
+              <span className="go">run →</span>
+            </li>
+          ))}
+        </ol>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit(question);
+          }}
+        >
+          <textarea
+            className="ask-box"
+            aria-label="Question"
+            rows={2}
+            maxLength={300}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="e.g. what is the risk of changing sensor?"
+          />
+          <div className="ask-row">
+            <span className="count">{question.trim().length}/300 · mode deterministic</span>
+            <button type="submit" className="btn" disabled={loading || !question.trim()}>
+              {loading ? "Querying FalkorDB…" : "Ask →"}
+            </button>
+          </div>
+        </form>
+
+        {loading && <p className="spin">replaying registered tool queries…</p>}
+        {error && (
+          <p className="alert" role="alert">
+            Ask failed: {error}. Is the API running at /api?
+          </p>
+        )}
+
+        {resp && (
+          <div>
+            <div className="answer">
+              {resp.answer || <span className="muted">No verified answer returned.</span>}
+              <div className="small mono muted" style={{ marginTop: 6 }}>
+                {verified}/{resp.claims.length} verified · {resp.removed_claims.length}{" "}
+                removed by verifier · mode {resp.mode}
+              </div>
+            </div>
+            {resp.removed_claims.length > 0 && (
+              <p className="alert warn">
+                {resp.removed_claims.length} claim(s) failed replay and are withheld —
+                only VERIFIED claims count.
+              </p>
+            )}
+            {resp.claims.map((c) => {
+              const tone = statusTone(c.status);
+              const sg = c.proof?.subgraph;
+              return (
+                <article key={c.claim_id} className="claim">
+                  <div className="claim-top">
+                    <span className={`stamp ${tone}`}>{c.status}</span>
+                    <span className="claim-id">{c.claim_id}</span>
+                    <span className="claim-id" style={{ marginLeft: "auto" }}>
+                      {(c.proof?.query_ids ?? []).join(" · ") || "no query"}
+                    </span>
+                  </div>
+                  <p className="text">{c.text}</p>
+                  {(c.caveats?.length > 0 || c.reasons?.length > 0) && (
+                    <p className="sub">
+                      {c.caveats?.length > 0 && <>Caveats: {c.caveats.join("; ")}. </>}
+                      {c.reasons?.length > 0 && <>Checks: {c.reasons.join("; ")}.</>}
                     </p>
                   )}
-                  {c.proof?.rendered_cypher && (
-                    <pre className="cypher">{c.proof.rendered_cypher}</pre>
-                  )}
-                </details>
-              </article>
-            );
-          })}
-        </div>
-      )}
+                  <details className="proof">
+                    <summary>
+                      proof · {(c.proof?.query_ids ?? []).join(", ") || "no query"}
+                      {sg
+                        ? ` · ${truncatedLabel(sg.truncated, sg.edge_count_total, sg.edge_count_returned)}`
+                        : ""}
+                    </summary>
+                    <div className="proof-inner">
+                      {c.proof?.caveats?.length > 0 && (
+                        <p className="proof-note">
+                          Snapshot caveat: {c.proof.caveats.join("; ")}
+                        </p>
+                      )}
+                      {sg && (
+                        <p className="proof-note">
+                          Subgraph: nodes {sg.node_count_returned}/{sg.node_count_total},
+                          edges {sg.edge_count_returned}/{sg.edge_count_total}.{" "}
+                          {sg.note}
+                        </p>
+                      )}
+                      {c.proof?.rendered_cypher && (
+                        <>
+                          <pre className="cypher">{c.proof.rendered_cypher}</pre>
+                          <button
+                            type="button"
+                            className="copy-btn"
+                            onClick={() => {
+                              void navigator.clipboard
+                                ?.writeText(c.proof.rendered_cypher)
+                                .then(() => {
+                                  setCopied(c.claim_id);
+                                  window.setTimeout(() => setCopied(null), 1200);
+                                })
+                                .catch(() => {});
+                            }}
+                          >
+                            {copied === c.claim_id ? "copied ✓" : "copy cypher"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

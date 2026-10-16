@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildModulesUrl, buildNeighborhoodUrl, buildPeopleUrl } from "./api";
-import { isVerifiedStatus, statusTone, sumCounts, truncatedLabel } from "./format";
+import { clamp01, formatDate, isVerifiedStatus, pct01, statusTone, sumCounts, truncatedLabel } from "./format";
 
 describe("api url builders", () => {
   it("encodes query params", () => {
@@ -36,5 +36,15 @@ describe("verification helpers", () => {
   it("labels truncation", () => {
     expect(truncatedLabel(false, 10, 10)).toBe("complete");
     expect(truncatedLabel(true, 3810, 224)).toContain("224");
+  });
+
+  it("formats ledger helpers", () => {
+    expect(formatDate(1728000000)).toBe("2024-10-04");
+    expect(formatDate(null)).toBe("—");
+    expect(pct01(0.5441)).toBe("54%");
+    expect(pct01(null)).toBe("—");
+    expect(clamp01(2)).toBe(1);
+    expect(clamp01(-1)).toBe(0);
+    expect(clamp01(0.5)).toBe(0.5);
   });
 });
