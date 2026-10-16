@@ -10,7 +10,7 @@ from falkordb import FalkorDB
 from provenance.config import settings
 from provenance.ingest.graph_loader import delete_graph_if_exists, load_graph
 from provenance.tools.analysis import module_profile, ownership_drift
-from provenance.tools.base import Fact
+from provenance.tools.base import Fact, ToolResult, recompute_fact
 from provenance.tools.config import DEFAULT_TOOL_CONFIG
 from provenance.agents.verifier import (
     AnswerDraft,
@@ -145,6 +145,69 @@ def test_float_tolerance_and_fact_id_qualification(verifier_graph) -> None:
     assert verified.claims[0].status == VERIFIED
     assert verified.claims[1].status == VERIFIED
     assert verified.claims[0].proof_bundle["as_of_ts"] == first.as_of_ts
+
+
+def test_long_list_display_is_abbreviated_but_full_params_replay(verifier_graph) -> None:
+    login = str(
+        verifier_graph.ro_query(
+            "MATCH (person:Person) WHERE person.is_bot = false "
+            "RETURN person.login ORDER BY person.login LIMIT 1",
+            {},
+        ).result_set[0][0]
+    )
+    graph_bounds = verifier_graph.ro_query(
+        "MATCH (pr:PR) RETURN min(pr.merged_ts), max(pr.merged_ts)", {}
+    ).result_set[0]
+    long_module_keys = [
+        "integration:demo",
+        *[f"integration:nonexistent_{index}" for index in range(12)],
+    ]
+    fact = Fact(
+        fact_id="LONG-LIST",
+        text="Recent authored or reviewed module evidence was replayed.",
+        value=None,
+        unit="module_keys",
+        query_id="activity.rows@1",
+        params={
+            "activity_start_ts": int(graph_bounds[0]),
+            "as_of_ts": int(graph_bounds[1]),
+            "module_key": None,
+            "person_login": login,
+            "module_keys": long_module_keys,
+            "top_n": 15,
+            "extract_module_key": None,
+        },
+        extractor="maintainer.affected_modules@1",
+    )
+    fact.value = recompute_fact(verifier_graph, fact)
+    tool_result = ToolResult(
+        tool="maintainer_loss",
+        args={"person_login": login},
+        as_of_ts=int(graph_bounds[1]),
+        result={},
+        facts=[fact],
+        evidence={"query_ids": [fact.query_id], "node_ids": [], "edge_ids": []},
+    )
+    original_params = fact.params.copy()
+    claim = Claim(
+        "LONG-C1",
+        "The stored maintenance activity fact was replayed.",
+        [qualified_fact_id(0, tool_result, fact)],
+    )
+
+    verified = verify(
+        AnswerDraft("Check long parameter rendering", [claim], [tool_result]),
+        verifier_graph,
+    )
+    rendered = render_claim_proof(verified.claims[0])
+
+    assert verified.claims[0].status == VERIFIED
+    assert fact.params == original_params
+    assert len(fact.params["module_keys"]) == 13
+    assert rendered.count("// $module_keys =") == 1
+    assert "... 10 more" in rendered
+    assert "integration:nonexistent_11" not in rendered
+    assert rendered.count("$module_keys") > 1
 
 
 def test_conflicting_as_of_pins_are_reported(verifier_graph) -> None:

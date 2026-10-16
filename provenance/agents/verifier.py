@@ -171,30 +171,121 @@ def _literal(value: Any) -> str:
     raise TypeError(f"Cannot render parameter value of type {type(value).__name__}.")
 
 
-def _render_fact_query(fact: Fact) -> str:
-    query = QUERY_REGISTRY.get(fact.query_id)
+def _display_literal(value: Any) -> str:
+    if isinstance(value, (list, tuple)) and len(value) > 8:
+        preview = ", ".join(_literal(item) for item in value[:3])
+        return f"[{preview}, ... {len(value) - 3} more]"
+    return _literal(value)
+
+
+def _compact_display_query(query_id: str, query: str) -> str:
+    if query_id == "reviewer.g3.bundle@1":
+        query = re.sub(r"\s+AS\s+[A-Za-z_][A-Za-z0-9_]*", "", query)
+        query = query.replace("0.6931471805599453", "log(2)")
+        aliases = {
+            "touched_module_count": "tc",
+            "target_touch": "tt",
+            "all_touch": "at",
+            "authored": "a",
+            "history": "h",
+            "person": "p",
+            "module": "m",
+            "review": "r",
+            "review_ids": "ri",
+        }
+        for original, shortened in aliases.items():
+            query = re.sub(rf"\b{original}\b", shortened, query)
+    elif query_id == "reviewer.support_edges@1":
+        for original, shortened in {
+            "person": "p",
+            "review": "r",
+            "touch": "t",
+            "module": "m",
+        }.items():
+            query = re.sub(rf"\b{original}\b", shortened, query)
+    return " ".join(query.split())
+
+
+def _display_query_override(query_id: str) -> tuple[str | None, str]:
+    if query_id == "reviewer.support_edges@1":
+        return (
+            "MATCH (p:Person)-[r:REVIEWED]->(pr:PR)-[t:TOUCHES]->(m:Module) "
+            "WHERE p.login IN $candidate_logins AND m.key IN $module_keys "
+            "AND pr.merged_ts >= $expertise_start_ts AND pr.merged_ts <= $as_of_ts "
+            "AND r.ts <= $as_of_ts "
+            "RETURN id(p), id(pr), id(m), id(r), id(t) "
+            "ORDER BY pr.merged_ts DESC LIMIT 120",
+            " (display view)",
+        )
+    return None, ""
+
+
+def _render_fact_query(query_id: str, facts: list[Fact]) -> str:
+    query = QUERY_REGISTRY.get(query_id)
     if query is None:
-        raise KeyError(f"Unknown query ID {fact.query_id!r}.")
+        raise KeyError(f"Unknown query ID {query_id!r}.")
+    display_query, display_note = _display_query_override(query_id)
+    if display_query is not None:
+        query = display_query
+
+    parameter_names = list(dict.fromkeys(_PARAMETER_PATTERN.findall(query)))
+    bindings = [
+        {name: fact.params[name] for name in parameter_names if name in fact.params}
+        for fact in facts
+    ]
+    placeholders: set[str] = set()
+    header_lines: list[str] = []
+    inline_values: dict[str, Any] = {}
+    for name in parameter_names:
+        values = [binding[name] for binding in bindings if name in binding]
+        if len(values) != len(bindings) or not values:
+            raise KeyError(f"Query parameter ${name} missing from fact {query_id!r}.")
+        unique_values: list[Any] = []
+        seen_values: set[str] = set()
+        for value in values:
+            key = _canonical(value)
+            if key not in seen_values:
+                seen_values.add(key)
+                unique_values.append(value)
+        has_long_list = any(
+            isinstance(value, (list, tuple)) and len(value) > 8
+            for value in unique_values
+        )
+        if len(unique_values) == 1 and not has_long_list:
+            inline_values[name] = unique_values[0]
+            continue
+        placeholders.add(name)
+        if len(unique_values) == 1:
+            display_values = _display_literal(unique_values[0])
+        else:
+            display_values = "; ".join(
+                f"binding {index}: {_display_literal(value)}"
+                for index, value in enumerate(unique_values, start=1)
+            )
+        header_lines.append(f"// ${name} = {display_values}")
 
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
-        if name not in fact.params:
-            raise KeyError(f"Query parameter ${name} missing from fact {fact.fact_id!r}.")
-        return _literal(fact.params[name])
+        if name in placeholders:
+            return f"${name}"
+        return _literal(inline_values[name])
 
-    return _PARAMETER_PATTERN.sub(replace, query).strip()
+    query = _PARAMETER_PATTERN.sub(replace, query)
+    query = _compact_display_query(query_id, query)
+    prefix = [f"// {query_id}{display_note}", *header_lines]
+    return "\n".join([*prefix, query]).strip()
 
 
 def render_claim_proof(claim: VerifiedClaim) -> str:
     """Render registry queries with literal parameters for display only; never execute this text."""
     fact_records = claim.proof_bundle.get("facts", [])
-    rendered = []
+    facts_by_query: dict[str, list[Fact]] = {}
     for item in fact_records:
-        query = _render_fact_query(item["fact"])
-        rendered.append(
-            f"// {item['query_id']} params={json.dumps(item['params'], sort_keys=True, default=str)}\n{query}"
-        )
-    return "\n\n".join(rendered)
+        facts_by_query.setdefault(item["query_id"], []).append(item["fact"])
+    return "\n\n".join(
+        _render_fact_query(query_id, facts)
+        for query_id, facts in facts_by_query.items()
+    )
 
 
 def _verify_claim(

@@ -305,8 +305,14 @@ def _reviewer_claim(
         (item for item in result.facts if item.extractor == "reviewer.target@1"),
         None,
     )
+    support_fact = next(
+        (item for item in result.facts if item.extractor == "reviewer.support_edges@1"),
+        None,
+    )
     prefix = f"For PR {pr_number}, " if pr_match else f"For {result.result['modules'][0]}, "
     reference_facts = [_reference(len(results) - 1, result, candidate_fact)]
+    if support_fact is not None and support_fact.value:
+        reference_facts.append(_reference(len(results) - 1, result, support_fact))
     if pr_match and target_fact is not None:
         reference_facts.append(_reference(len(results) - 1, result, target_fact))
     _claim(claims, prefix + f"the top reviewer suggestions are {names}.", reference_facts)

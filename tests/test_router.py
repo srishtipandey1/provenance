@@ -15,7 +15,7 @@ from provenance.agents.llm import LLMBudget, LLMResponse
 from provenance.ingest.graph_loader import delete_graph_if_exists, load_graph
 from provenance.agents.router import run_question
 from provenance.agents.verifier import VERIFIED
-from provenance.tools.analysis import maintainer_loss
+from provenance.tools.analysis import maintainer_loss, suggest_reviewers
 from provenance.tools.queries import QUERY_REGISTRY
 
 
@@ -89,6 +89,7 @@ def router_graph():
         ("what is the risk of changing the demo integration?", "module_profile"),
         ("who should review PR 502?", "suggest_reviewers"),
         ("who should review #502?", "suggest_reviewers"),
+        ("who should review changes to demo?", "suggest_reviewers"),
         ("what happens if solo-maintainer leaves?", "maintainer_loss"),
         ("who owns demo?", "module_profile"),
         ("what depends on demo?", "blast_radius"),
@@ -149,6 +150,31 @@ def test_router_reuses_precomputed_maintainer_tool_result(router_graph, monkeypa
     assert routed.answer.summary_counts[VERIFIED] == len(routed.answer.claims)
     assert "solo-maintainer" in routed.answer.final_answer
     assert any(item.get("reused") for item in routed.tool_timings)
+
+
+def test_reviewer_support_edges_are_in_tool_evidence(router_graph) -> None:
+    result = suggest_reviewers(router_graph, pr_number=502, top_n=3)
+    support_fact = next(
+        fact for fact in result.facts if fact.extractor == "reviewer.support_edges@1"
+    )
+    edge_ids = set(result.evidence["edge_ids"])
+    node_ids = set(result.evidence["node_ids"])
+
+    assert support_fact.value
+    assert all(
+        event["review_edge_id"] in edge_ids
+        and event["person_id"] in node_ids
+        and event["pr_id"] in node_ids
+        and (
+            event["module_id"] is None
+            or event["module_id"] in node_ids
+        )
+        and (
+            event["touch_edge_id"] is None
+            or event["touch_edge_id"] in edge_ids
+        )
+        for event in support_fact.value
+    )
 
 
 def test_agent_parse_fallback_reuses_maintainer_result(router_graph, monkeypatch) -> None:
