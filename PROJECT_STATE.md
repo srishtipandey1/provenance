@@ -14,6 +14,7 @@
 ## Evaluation
 - Round 1 held-out B3 hit@3 is 0.4342; round 2 G3 pooled unseen B/C hit@3 is 0.5441 versus B3 0.4257. G3 improves top-K metrics, not hit@1 universally.
 - Per-PR Fold A reproduces round-1 B3 exactly (0.434215); fixed-window B3 is 0.297428. See [results/reviewer_eval_round2.json](results/reviewer_eval_round2.json) and [results/reviewer_eval_round2_per_pr.json](results/reviewer_eval_round2_per_pr.json).
+- Text-only RAG uses cached CPU all-MiniLM-L6-v2 embeddings for 10,285 public PR documents (401.8 seconds). On pooled per-PR-as-of B+C (n=2,812), RAG hit@1/3/5, recall@5, MRR = 0.343/0.569/0.684/0.603/0.488; G3 = 0.323/0.600/0.705/0.633/0.500. G3-RAG paired 95% CIs are +0.0309 [0.0117, 0.0491] for hit@3 and +0.0118 [0.0002, 0.0233] for MRR. RAG wins hit@3 in the cold slice (0.633 vs G3 0.593) and hit@1/MRR in ownerless integrations; see [results/rag_baseline.json](results/rag_baseline.json) and [results/scoreboard.json](results/scoreboard.json).
 
 ## Tools And Reports
 - Eight deterministic, read-only, fact-replaying tools: module_profile, ownership_drift, bus_factor, blast_radius, criticality, suggest_reviewers, maintainer_loss, decision_trace.
@@ -23,9 +24,11 @@
 - A temporary-graph audit confirmed FalkorDB's variable-length path quirk for `UNWIND` aliases in pattern maps; the registered query now filters `target.key IN $module_keys`.
 - The pure-code verifier replays registered facts, checks numeric grounding/as-of agreement, attaches snapshot caveats, and renders proof snippets for display only. Deterministic question router and `scripts/ask.py` cover risk, reviewer, maintainer, owner, dependency, top-risk, and decision questions; `--tamper N` is a labeled test hook.
 - The plain-code verifier replays registered Facts, grounds claim numbers, checks as-of pins, and attaches owner/dependency snapshot caveats. The deterministic router and `scripts/ask.py` support risk, reviewer, maintainer, owner, dependency, top-risk, and decision questions with proof display and a labeled tamper hook.
+- LLM smoke outcome: Groq handled both live questions within 7 calls; the sensor-risk claim was removed as unsupported, and the epenet question fell back after 4 calls to one verified deterministic claim. A separate single Gemini request verified `gemini-3.8-flash`; total real calls were 8.
+- `scripts/run_rag_eval.py` generates the graph-free text ranking baseline with validation-only k/weight tuning and a five-PR module-cold evidence audit; `scripts/scoreboard.py` writes pooled B+C B1/B2/B3/RAG/G1/G3 metrics plus cold and ownerless slices. Encoder vectors are cached under gitignored `data/cache/rag`.
 
 ## Verification
-- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp`.
+- Full suite: `.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp` (79 passed).
 - `tests/conftest.py` preflights FalkorDB and skips only graph-dependent tests with the Docker startup message when unavailable.
 - Real CLI forms verified: `run_tool.py` supports `--arg`, `--args-file`, `--args -` (stdin), and the warned PowerShell fallback; `ask.py` supports deterministic JSON, proof display, and tamper demonstration.
 - `tests/conftest.py` skips graph-dependent tests with a single Docker startup message when FalkorDB is unreachable. AI assistance and the G3 review-event deduplication fix are in `AI_USE.md`; evaluator code and published metrics are unchanged.
