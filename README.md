@@ -8,6 +8,22 @@
 
 On the original held-out evaluation, declared-owner B1 scored 0.144 hit@3 across 2,683 primary-reviewer targets. In the Home Assistant graph snapshot (2026-10-15), if `epenet` stops reviewing, 21 modules lose expert coverage and 751 distinct dependent modules are affected. The graph contains 10,285 PRs, 1,629 modules, 1,497 people, and 455 decisions.
 
+## Why this exists
+
+Ownership files tend to outlive the team changes they were meant to describe. A stale CODEOWNERS rule or integration manifest can keep pinging the old owner while the engineer who has quietly become the practical expert is invisible. The nominal owner may have moved on, missed the last several releases, and have no context when a risky change arrives. Teams often discover that mismatch only when a review stalls or a production issue lands with nobody sure who can diagnose it.
+
+## Approach
+
+Provenance keeps PRs, people, modules, decisions, and their relationships in FalkorDB so questions can follow multi-hop paths—such as from a maintainer through uncovered modules to dependent systems—without hand-assembling joins across each data source. Reads go through deterministic, typed tools and registered queries instead of letting an LLM invent live Cypher, which makes the same facts reproducible and auditable. A separate verifier re-executes each cited fact and checks the claim against the replayed values; plausible citations are not accepted on trust. The text-retrieval baseline was built as a measured comparator, so graph gains and losses can be tested against the same targets rather than assumed.
+
+## What we learned building it
+
+- Evaluation regimes matter: per-target as-of scoring gave B3 hit@3 of 0.4342, while the fixed-window result was 0.2974; the history-window difference explained the gap.
+- A FalkorDB variable-length path query silently returned no rows when an `UNWIND` alias appeared inside the terminal node property map; moving the key test to `WHERE ... IN $module_keys` fixed it on a tiny graph.
+- A real LLM answer exposed the grounding failure this system is designed to catch: its prose included unsupported numbers and qualified fact IDs; numeric replay checks rejected an ungrounded claim, and the agent was changed to select existing fact IDs rather than author fact claims.
+- RAG was stronger than expected on cold start (0.633 vs. G3 at 0.593 hit@3) and pooled top-one ranking (0.343 vs. G3 at 0.323); reporting both prevents a top-three aggregate win from becoming a universal claim.
+- On the real graph, an aggregate `id(review)` projection returned PR-number-shaped values instead of trustworthy review-edge IDs; the evidence path now uses a dedicated scalar review-edge query.
+
 ## How it works
 
 ```mermaid
