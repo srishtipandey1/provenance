@@ -23,7 +23,6 @@ export function RiskAtlas({ onSelectModule }: { onSelectModule: (key: string) =>
   const rows = Array.isArray(risk?.top_15_modules)
     ? [...risk.top_15_modules]
         .sort((a, b) => (b.risk_score ?? 0) - (a.risk_score ?? 0))
-        .slice(0, 8)
     : [];
   const exposure = Array.isArray(risk?.single_person_risks) ? risk.single_person_risks[0] : undefined;
   const maxScore = Math.max(0.01, ...rows.map((r) => r.risk_score ?? 0));

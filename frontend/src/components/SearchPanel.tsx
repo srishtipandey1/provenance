@@ -15,14 +15,27 @@ export function SearchPanel() {
     if (!query || loading) return;
     setLoading(true);
     setError(null);
+    setModules([]);
+    setPeople([]);
     try {
-      const [m, p] = await Promise.all([
+      const [moduleResult, peopleResult] = await Promise.allSettled([
         api.searchModules(query),
         api.searchPeople(query),
       ]);
-      setModules(m);
-      setPeople(p);
+      const moduleHits = moduleResult.status === "fulfilled" ? moduleResult.value : [];
+      const peopleHits = peopleResult.status === "fulfilled" ? peopleResult.value : [];
+      setModules(moduleHits);
+      setPeople(peopleHits);
       setSearched(true);
+      const failures = [
+        moduleResult.status === "rejected"
+          ? `modules: ${moduleResult.reason instanceof Error ? moduleResult.reason.message : String(moduleResult.reason)}`
+          : null,
+        peopleResult.status === "rejected"
+          ? `people: ${peopleResult.reason instanceof Error ? peopleResult.reason.message : String(peopleResult.reason)}`
+          : null,
+      ].filter((message): message is string => message !== null);
+      if (failures.length > 0) setError(failures.join("; "));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -73,7 +86,9 @@ export function SearchPanel() {
           <div>
             <h3>Modules ({modules.length})</h3>
             {(!searched || modules.length === 0) && (
-              <p className="muted small">{searched ? "No module matches." : "Not searched yet."}</p>
+              <p className="muted small">
+                {loading ? "Searching…" : searched ? "No module matches." : "Not searched yet."}
+              </p>
             )}
             <ul className="plain">
               {modules.map((m) => (
@@ -89,7 +104,9 @@ export function SearchPanel() {
           <div>
             <h3>People ({people.length})</h3>
             {(!searched || people.length === 0) && (
-              <p className="muted small">{searched ? "No person matches." : "Not searched yet."}</p>
+              <p className="muted small">
+                {loading ? "Searching…" : searched ? "No person matches." : "Not searched yet."}
+              </p>
             )}
             <ul className="plain">
               {people.map((p) => (
