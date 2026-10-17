@@ -6,7 +6,7 @@
 
 ## The problem
 
-On the original held-out evaluation, declared-owner B1 scored 0.144 hit@3 across 2,683 primary-reviewer targets. In the Home Assistant graph snapshot (2026-10-15), if `epenet` stops reviewing, 21 modules lose expert coverage and 751 distinct dependent modules are affected. The graph contains 10,285 PRs, 1,629 modules, 1,497 people, and 455 decisions.
+I started Provenance to make one practical gap visible: the difference between who a repository says owns its code and who its contribution history shows is working on it. On the original held-out evaluation, declared-owner B1 scored 0.144 hit@3 across 2,683 primary-reviewer targets. In the Home Assistant graph snapshot (2026-10-15), if `epenet` stops reviewing, 21 modules lose expert coverage and 751 distinct dependent modules are affected. The graph contains 10,285 PRs, 1,629 modules, 1,497 people, and 455 decisions.
 
 ## Why this exists
 
