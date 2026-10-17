@@ -48,7 +48,7 @@ export function SearchPanel() {
   }
 
   return (
-    <section className="section" aria-label="Module and person search">
+    <section id="search" className="section" aria-label="Module and person search">
       <div className="sec-head">
         <h2>
           <span className="sec-no">04</span>Index search

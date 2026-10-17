@@ -14,17 +14,17 @@ function kindOf(n: SubgraphNode): NodeKind {
 }
 
 const FILL: Record<NodeKind, string> = {
-  module: "#1b1710",
-  person: "#1e5b4a",
-  team: "#7a5f14",
-  other: "#ffffff",
+  module: "var(--node-module)",
+  person: "var(--node-person)",
+  team: "var(--node-team)",
+  other: "var(--node-other)",
 };
 
 const STROKE: Record<NodeKind, string> = {
-  module: "#1b1710",
-  person: "#1e5b4a",
-  team: "#7a5f14",
-  other: "#8a8171",
+  module: "var(--node-module)",
+  person: "var(--node-person)",
+  team: "var(--node-team)",
+  other: "var(--node-other)",
 };
 
 export function ImpactPanel() {
@@ -69,10 +69,10 @@ export function ImpactPanel() {
   }, []);
 
   return (
-    <section className="section" aria-label="Change impact explorer">
+    <section id="graph" className="section section-graph" aria-label="Change impact explorer">
       <div className="sec-head">
         <h2>
-          <span className="sec-no">03</span>Impact explorer
+          <span className="sec-no">01</span>Impact explorer
         </h2>
         <span className="hint">owners · behavior · dependents</span>
       </div>
@@ -128,8 +128,16 @@ function ImpactGraph({
   selected: number | null;
   onSelect: (id: number | null) => void;
 }) {
-  const W = 640;
-  const H = 400;
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 640px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+    const update = () => setCompact(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const W = compact ? 640 : 1600;
+  const H = 620;
   const cx = W / 2;
   const cy = H / 2;
 
@@ -144,6 +152,7 @@ function ImpactGraph({
     );
     return { rest, byId };
   }, [data]);
+  const visibleNodes = compact ? nodes.rest.slice(0, 6) : nodes.rest;
 
   const edges = useMemo(() => {
     const ids = new Set(data.subgraph.nodes.map((n) => n.id));
@@ -153,19 +162,27 @@ function ImpactGraph({
   const pos = useMemo(() => {
     const m = new Map<number, { x: number; y: number; ring: number }>();
     m.set(data.module.id, { x: cx, y: cy, ring: 0 });
-    const inner = nodes.rest.slice(0, 9);
-    const outer = nodes.rest.slice(9);
+    const inner = visibleNodes.slice(0, compact ? 6 : 9);
+    const outer = visibleNodes.slice(compact ? 6 : 9);
     inner.forEach((n, i) => {
       const a = (2 * Math.PI * i) / Math.max(1, inner.length) - Math.PI / 2;
-      m.set(n.id, { x: cx + 118 * Math.cos(a), y: cy + 92 * Math.sin(a), ring: 1 });
+      m.set(n.id, {
+        x: cx + (compact ? 210 : 240) * Math.cos(a),
+        y: cy + (compact ? 185 : 174) * Math.sin(a),
+        ring: 1,
+      });
     });
     outer.forEach((n, i) => {
       const a = (2 * Math.PI * i) / Math.max(1, outer.length) - Math.PI / 2 + 0.18;
-      m.set(n.id, { x: cx + 238 * Math.cos(a), y: cy + 158 * Math.sin(a), ring: 2 });
+      m.set(n.id, {
+        x: cx + (compact ? 258 : 650) * Math.cos(a),
+        y: cy + (compact ? 258 : 274) * Math.sin(a),
+        ring: 2,
+      });
     });
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.module.id, nodes.rest]);
+  }, [compact, data.module.id, visibleNodes]);
 
   const [hover, setHover] = useState<number | null>(null);
   const focus = hover ?? selected;
@@ -188,7 +205,15 @@ function ImpactGraph({
     const kind: NodeKind = full ? kindOf(full) : "module";
     const dim = linked && !linked.has(n.id);
     const isSel = selected === n.id;
-    const label = (("display" in n ? n.display : full?.display) ?? "").slice(0, 24);
+    const fullLabel = ("display" in n ? n.display : full?.display) ?? "";
+    const shortLabel = compact && kind === "module"
+      ? fullLabel.slice(fullLabel.lastIndexOf(":") + 1)
+      : fullLabel;
+    const labelLimit = compact ? 6 : 24;
+    const label = shortLabel.length > labelLimit
+      ? `${shortLabel.slice(0, labelLimit - 1)}…`
+      : shortLabel;
+    const labelOnLeft = p.x > (compact ? cx : W * 0.68);
     return (
       <g
         key={n.id}
@@ -199,25 +224,33 @@ function ImpactGraph({
         style={{ cursor: "pointer" }}
       >
         {center ? (
-          <rect x={p.x - 9} y={p.y - 9} width={18} height={18} fill={FILL.module} stroke={isSel ? "#b3400f" : FILL.module} strokeWidth={isSel ? 3 : 1} />
+          <rect x={p.x - 10} y={p.y - 10} width={20} height={20} fill={FILL.module} stroke={isSel ? "var(--graph-ink)" : FILL.module} strokeWidth={isSel ? 3 : 1} />
         ) : kind === "team" ? (
           <path
-            d={`M ${p.x} ${p.y - 8} L ${p.x + 8} ${p.y} L ${p.x} ${p.y + 8} L ${p.x - 8} ${p.y} Z`}
-            fill={isSel ? "#b3400f" : FILL.team}
-            stroke={isSel ? "#b3400f" : STROKE.team}
+            d={`M ${p.x} ${p.y - 9} L ${p.x + 9} ${p.y} L ${p.x} ${p.y + 9} L ${p.x - 9} ${p.y} Z`}
+            fill={isSel ? "var(--graph-ink)" : FILL.team}
+            stroke={STROKE.team}
             strokeWidth={1.5}
           />
         ) : (
           <circle
             cx={p.x}
             cy={p.y}
-            r={kind === "person" ? 7 : 5}
+            r={kind === "person" ? 8 : 6}
             fill={kind === "other" ? FILL.other : FILL[kind]}
-            stroke={isSel ? "#b3400f" : STROKE[kind]}
+            stroke={isSel ? "var(--graph-ink)" : STROKE[kind]}
             strokeWidth={isSel ? 2.5 : 1.5}
           />
         )}
-        <text x={p.x + 11} y={p.y + 4} fontSize={9.5} className="node-label" fill="#1b1710">
+        <text
+          x={p.x + (labelOnLeft ? -13 : 13)}
+          y={p.y + 5}
+          textAnchor={labelOnLeft ? "end" : "start"}
+          fontSize={compact ? 28 : 17}
+          className="node-label"
+          fill="var(--graph-ink)"
+        >
+          <title>{fullLabel}</title>
           {label}
         </text>
       </g>
@@ -227,7 +260,7 @@ function ImpactGraph({
   return (
     <div>
       <p className="small" style={{ margin: "12px 0 0" }}>
-        <strong style={{ fontFamily: "Georgia, serif", fontSize: "1.05rem" }}>{data.module.key}</strong>{" "}
+        <strong className="graph-module-key">{data.module.key}</strong>{" "}
         <span className="muted mono small">
           {data.direct_dependents.length} dependents · {data.behavioral_people.length}{" "}
           behavioral · {data.declared_owners.length} declared owners
@@ -235,15 +268,22 @@ function ImpactGraph({
       </p>
       <div className="graph-frame">
         <div className="graph-legend">
-          <span><span className="dot" style={{ background: "#1b1710" }} />module (■ subject)</span>
-          <span><span className="dot" style={{ background: "#1e5b4a", borderRadius: "50%" }} />person</span>
-          <span><span className="dot" style={{ background: "#7a5f14" }} />team</span>
-          <span><span className="dot" style={{ background: "#fff", border: "1px solid #8a8171", borderRadius: "50%" }} />other</span>
+          <span><span className="dot" style={{ background: "var(--node-module)" }} />module (■ subject)</span>
+          <span><span className="dot" style={{ background: "var(--node-person)", borderRadius: "50%" }} />person</span>
+          <span><span className="dot" style={{ background: "var(--node-team)" }} />team</span>
+          <span><span className="dot" style={{ background: "var(--node-other)", borderRadius: "50%" }} />other</span>
           <span style={{ marginLeft: "auto" }}>hover isolates · click pins</span>
         </div>
         <svg className="ledger-graph" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Module neighborhood graph">
-          <ellipse cx={cx} cy={cy} rx={118} ry={92} fill="none" stroke="#d9cfb4" strokeDasharray="3 4" />
-          <ellipse cx={cx} cy={cy} rx={238} ry={158} fill="none" stroke="#d9cfb4" strokeDasharray="3 4" />
+          <defs>
+            <radialGradient id="subject-glow">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx={cx} cy={cy} r={compact ? 220 : 320} fill="url(#subject-glow)" />
+          <ellipse cx={cx} cy={cy} rx={compact ? 138 : 240} ry={compact ? 132 : 174} fill="none" stroke="var(--graph-ring)" strokeDasharray="4 7" />
+          <ellipse cx={cx} cy={cy} rx={compact ? 258 : 650} ry={compact ? 258 : 274} fill="none" stroke="var(--graph-ring)" strokeDasharray="4 7" />
           {edges.map((e: SubgraphEdge) => {
             const a = pos.get(e.source);
             const b = pos.get(e.target);
@@ -256,20 +296,23 @@ function ImpactGraph({
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke={active ? "#1b1710" : "#cfc4a6"}
-                strokeWidth={active ? 1.2 : 0.7}
-                opacity={active ? 0.75 : 0.5}
+                stroke={active ? "var(--graph-edge)" : "var(--graph-edge-dim)"}
+                strokeWidth={active ? 1.8 : 1}
+                opacity={active ? 0.9 : 0.58}
               />
             );
           })}
           {renderNode({ id: data.module.id, display: data.module.key }, true)}
-          {nodes.rest.filter((n) => pos.has(n.id)).map((n) => renderNode(n, false))}
+          {visibleNodes.filter((n) => pos.has(n.id)).map((n) => renderNode(n, false))}
         </svg>
         <div className="graph-cap">
           {truncatedLabel(data.subgraph.truncated, data.subgraph.edge_count_total, data.subgraph.edge_count_returned)}{" "}
           — nodes {data.subgraph.node_count_returned}/{data.subgraph.node_count_total},
           edges {data.subgraph.edge_count_returned}/{data.subgraph.edge_count_total}.{" "}
           {data.subgraph.note} Partial display, not the full evidence set.
+          {compact && (
+            <> Mobile labels {visibleNodes.length + 1}/{data.subgraph.nodes.length} · tap a node to pin its full key.</>
+          )}
           {selectedNode && (
             <> Pinned: {selectedNode.display} ({selectedNode.label}).</>
           )}

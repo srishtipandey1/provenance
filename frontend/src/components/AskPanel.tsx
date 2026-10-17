@@ -36,10 +36,10 @@ export function AskPanel() {
   ).length;
 
   return (
-    <section className="section" aria-label="Ask the graph">
+    <section id="ask" className="section" aria-label="Ask the graph">
       <div className="sec-head">
         <h2>
-          <span className="sec-no">01</span>Ask the graph
+          <span className="sec-no">02</span>Ask the graph
         </h2>
         <span className="hint">deterministic · GRAPH.RO_QUERY only</span>
       </div>

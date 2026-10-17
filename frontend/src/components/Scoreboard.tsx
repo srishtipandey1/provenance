@@ -26,7 +26,7 @@ export function ScoreboardPanel() {
   const n = score?.scoreboard?.pooled_BC?.n;
 
   return (
-    <section className="section" aria-label="Reviewer scoreboard">
+    <section id="evidence" className="section" aria-label="Reviewer scoreboard">
       <div className="sec-head">
         <h2>
           <span className="sec-no">05</span>Reviewer scoreboard
@@ -54,7 +54,7 @@ export function ScoreboardPanel() {
             </thead>
             <tbody>
               {names.map((name) => (
-                <tr key={name} style={name === "G3" ? { background: "#eef3ea" } : undefined}>
+                <tr key={name} className={name === "G3" ? "highlight-row" : undefined}>
                   <td className="m">{name}{name === "G3" && " ★"}</td>
                   <td>{methods?.[name]?.["hit@3"]?.toFixed(3) ?? "—"}</td>
                   <td>{methods?.[name]?.["MRR"]?.toFixed(3) ?? "—"}</td>
@@ -64,8 +64,7 @@ export function ScoreboardPanel() {
           </table>
         )}
         <p className="small muted" style={{ marginBottom: 0 }}>
-          Frozen per-PR as-of regime. G3 ★ improves top-K over B3/G1; B3 keeps a narrow
-          hit@1 edge. Full CIs in results/reviewer_eval_round2.json.
+          Frozen per-PR snapshot · G3 top-K edge · B3 hit@1 edge · CIs: results/reviewer_eval_round2.json
         </p>
       </div>
     </section>

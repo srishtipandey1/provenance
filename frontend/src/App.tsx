@@ -8,14 +8,9 @@ import { ImpactPanel } from "./components/ImpactPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { ScoreboardPanel } from "./components/Scoreboard";
 
-const TRACKS = [
-  "Agents That Act on Connected Data",
-  "Agent Memory and Coordination",
-  "Company Brain",
-];
-
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [activeSection, setActiveSection] = useState("graph");
 
   useEffect(() => {
     let alive = true;
@@ -32,6 +27,25 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const sections = [...document.querySelectorAll<HTMLElement>(".page section[id]")];
+    const updateActiveSection = () => {
+      const marker = window.innerHeight * 0.35 + 70;
+      const current =
+        [...sections].reverse().find((section) => section.getBoundingClientRect().top <= marker)?.id ??
+        sections[0]?.id ??
+        "graph";
+      setActiveSection((previous) => (previous === current ? previous : current));
+    };
+    updateActiveSection();
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("resize", updateActiveSection);
+    return () => {
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("resize", updateActiveSection);
+    };
+  }, []);
+
   const reachable = health?.graph_reachable ?? null;
 
   return (
@@ -39,10 +53,21 @@ export default function App() {
       <header className="mast">
         <div className="mast-top">
           <div className="wordmark">
-            PROVENANCE<span className="no">fig. 1 — declared vs. behaved</span>
+            PROVENANCE<span className="no">GRAPH INTELLIGENCE</span>
           </div>
-          <div className="mast-meta">
-            <div>
+        </div>
+        <div className="hero">
+          <div className="hero-copy">
+            <div className="kicker">
+              LIVE GRAPH · HOME ASSISTANT CORE
+            </div>
+            <h1>Declared vs. behaved.</h1>
+            <p className="lede">
+              FalkorDB reveals the gap between code ownership and contribution behavior; every claim replays against graph evidence.
+            </p>
+          </div>
+          <div className="hero-data">
+            <div className="mast-meta">
               {reachable === null ? (
                 <span className="pill">checking graph…</span>
               ) : reachable ? (
@@ -50,54 +75,41 @@ export default function App() {
               ) : (
                 <span className="pill down">○ graph down</span>
               )}
+              <span>
+                {health
+                  ? `${health.graph} · as-of ${formatDate(health.as_of_ts)}`
+                  : "home-assistant/core · 180-day merged-PR window"}
+              </span>
             </div>
-            <div>
-              {health ? (
-                <>
-                  {health.graph} · as-of {formatDate(health.as_of_ts)} ·{" "}
-                  {(health.llm_providers ?? []).filter((p) => p.available).length}/
-                  {(health.llm_providers ?? []).length} llm probes
-                </>
-              ) : (
-                <>home-assistant/core · 180-day merged-PR window</>
-              )}
-            </div>
+            <LedgerStrip />
           </div>
-        </div>
-        <div className="hero">
-          <div>
-            <div className="kicker">
-              <span className="rule" />
-              FalkorDB computes the gap · the LLM only narrates proof
-            </div>
-            <h1>
-              Declared vs. <em>behaved.</em>
-            </h1>
-            <p className="lede">
-              Every organization has an org chart it claims and a contribution graph it
-              earns. Provenance overlays CODEOWNERS, manifests and decision records
-              against who actually authors, reviews, and breaks what — and every claim
-              below replays a read-only FalkorDB query. Nothing here is vibes.
-            </p>
-            <div className="tracks">
-              {TRACKS.map((t) => (
-                <span key={t} className="track">
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-          <LedgerStrip />
         </div>
       </header>
 
+      <nav className="section-nav" aria-label="Dashboard sections">
+        {[
+          ["graph", "Graph"],
+          ["ask", "Ask"],
+          ["risk", "Risk"],
+          ["search", "Search"],
+          ["evidence", "Evidence"],
+        ].map(([id, label]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className={activeSection === id ? "active" : undefined}
+            aria-current={activeSection === id ? "location" : undefined}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
       <main className="page">
-        <div className="col">
-          <AskPanel />
-          <RiskAtlas onSelectModule={selectModule} />
-        </div>
-        <div className="col">
-          <ImpactPanel />
+        <ImpactPanel />
+        <AskPanel />
+        <RiskAtlas onSelectModule={selectModule} />
+        <div className="secondary-grid">
           <SearchPanel />
           <ScoreboardPanel />
         </div>
@@ -105,8 +117,8 @@ export default function App() {
 
       <footer className="foot">
         <div className="foot-inner">
-          <span>same-origin /api → 127.0.0.1:8000 · read-only GRAPH.RO_QUERY</span>
-          <span>subgraph displays are partial when truncated · only VERIFIED counts</span>
+          <span>/api · GRAPH.RO_QUERY</span>
+          <span>partial subgraphs when truncated · only VERIFIED counts</span>
         </div>
       </footer>
     </>
@@ -118,7 +130,6 @@ function selectModule(key: string) {
 }
 
 function LedgerStrip() {
-  // Hard ledger figures from the frozen 180-day graph snapshot.
   const cells: [string, string][] = [
     ["10,285", "merged PRs"],
     ["1,629", "modules"],

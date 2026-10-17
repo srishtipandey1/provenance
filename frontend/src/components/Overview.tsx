@@ -28,10 +28,10 @@ export function RiskAtlas({ onSelectModule }: { onSelectModule: (key: string) =>
   const maxScore = Math.max(0.01, ...rows.map((r) => r.risk_score ?? 0));
 
   return (
-    <section className="section" aria-label="Risk atlas">
+    <section id="risk" className="section" aria-label="Risk atlas">
       <div className="sec-head">
         <h2>
-          <span className="sec-no">02</span>Risk atlas
+          <span className="sec-no">03</span>Risk atlas
         </h2>
         <span className="hint">GET /api/risk · bus 0.35 / drift 0.30 / rank 0.20 / deps 0.15</span>
       </div>
@@ -86,12 +86,12 @@ export function RiskAtlas({ onSelectModule }: { onSelectModule: (key: string) =>
         <p className="small muted" style={{ marginBottom: 0 }}>
           {exposure ? (
             <>
-              Largest single-maintainer exposure: <strong>{exposure.person_login}</strong>{" "}
+              Single-maintainer exposure · <strong>{exposure.person_login}</strong>{" "}
               — {exposure.uncovered_module_count} modules uncovered,{" "}
-              {exposure.distinct_dependents_affected} distinct dependents.{" "}
+              {exposure.distinct_dependents_affected} distinct dependents.
             </>
-          ) : null}
-          Click a row to inspect it in the impact explorer →
+          ) : null}{" "}
+          <span className="mono">click row → graph</span>
         </p>
       </div>
     </section>
