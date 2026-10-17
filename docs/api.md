@@ -31,3 +31,15 @@ Example ask request:
 The question is limited to 300 characters. `mode` is `deterministic`, `llm`, or `auto`; `tamper` is an optional positive integer test hook. LLM/auto requests are rate-limited to six per client per minute. The global daily request budget defaults to 100 and can be changed with `PROVENANCE_LLM_DAILY_REQUEST_LIMIT`; usage is persisted as a count and date in gitignored `data/cache/api/llm_daily.json`. When exhausted, LLM/auto transparently return deterministic output with mode `deterministic-fallback (llm budget exhausted)`. Identical untampered deterministic questions are cached in memory for 30 seconds.
 
 Proof subgraphs use internal FalkorDB IDs, which can change when a graph is rebuilt. Results report total and returned node/edge counts, a `truncated` flag, and a relevance note. Selection prioritizes the claim subject, directly cited entities, high-impact dependents, and then weighted evidence. Node and edge output is capped at 150 and 300 respectively; only `login`, `key`, `name`, `number`, `title`, `status`, `kind`, and `ts` properties are returned. Request logs contain a request ID, method, path, status, and elapsed time, never request bodies or credentials. Error responses do not include stack traces.
+
+## Graph Coordination Demos
+
+The workflow agents are deterministic wrappers around existing graph tools; they make no LLM calls. Run these from the repository root with FalkorDB available:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\coordination_demo.py
+.\.venv\Scripts\python.exe scripts\tenant_demo.py
+.\.venv\Scripts\python.exe scripts\concurrency_demo.py
+```
+
+`coordination_demo.py` auto-selects a recent authored integration PR/module/login, unless explicit `--pr-number`, `--module`, and `--person` values are supplied. It writes graph-persisted tasks and episodes to `provenance_ha`; RiskAgent depends on ReviewerAgent, and the second HistorianAgent run reads its prior Episode. `tenant_demo.py` copies the selected `integration:zha` and `integration:sensor` modules, their mutual dependency links, and associated PR/person/owner subgraphs from `provenance_ha` to `provenance_tenant_a` and `provenance_tenant_b`, runs the same router question against each, verifies independent Task/Episode state, and deletes both temporary graphs on exit. Override the source graph/modules with `--source-graph`, `--module`, and `--second-module`. `concurrency_demo.py` submits 20 concurrent Task/Episode writes to `provenance_ha` by default; these test records persist. It does not start an API server.

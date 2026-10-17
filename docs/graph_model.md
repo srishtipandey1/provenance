@@ -11,6 +11,9 @@ This graph is rebuilt from the public Home Assistant PR JSONL cache, the local `
 | `Module` | `key` | `kind` (`integration`, `core`, or `infra`), `name` |
 | `PR` | `number` | `title`, integer `merged_ts`, `additions`, `deletions`, `breaking_box`, `breaking_text`, `labels` |
 | `Decision` | `id` | `title`, `status`, `source` |
+| `Task` | `id` | `kind`, `status`, integer `created_ts`, integer `updated_ts` |
+| `Episode` | `id` | `agent_name`, `subject`, `question`, `answer_summary`, nanosecond epoch `ts`, replay metadata and original evidence IDs |
+| `Agent` | `name` | Synthetic workflow-agent identity; separate from public GitHub `Person` logins |
 
 All event timestamps are integer Unix epoch seconds. `PR.merged_ts`, `AUTHORED.ts`, and `REVIEWED.ts` are never stored as ISO strings. `Person.login` and team handles are case-folded for stable GitHub identity matching; person logins have no leading `@`. Bot authors are retained with `is_bot=true`; bot reviewers and reviews by the PR author are omitted.
 
@@ -26,6 +29,10 @@ All event timestamps are integer Unix epoch seconds. `PR.merged_ts`, `AUTHORED.t
 | `(Decision)-[:SUPERSEDES]->(Decision)` | Direction is newer decision to older decision |
 | `(PR)-[:REFERENCES]->(Decision)` | Resolved ADR links and reference-only architecture discussion/issue links |
 | `(PR)-[:DECIDED_AS]->(Decision)` | One `pr-breaking` Decision for each PR with either breaking signal |
+| `(Task)-[:CLAIMED_BY]->(Agent)` | Synthetic workflow agent responsible for the task |
+| `(Task)-[:PRODUCED]->(Episode)` | Completed task's durable output |
+| `(Episode)-[:USED_FACT]->(existing evidence node)` | Evidence node IDs come from the deterministic tools; the Episode also retains their edge IDs and registered query/parameter/extractor metadata for replay |
+| `(Task)-[:DEPENDS_ON]->(Task)` | Workflow prerequisite, such as risk analysis depending on reviewer analysis |
 
 ADR Decisions use the padded ADR id as `id`, the local ADR title/status, and the path relative to `data/raw/architecture` as `source`. Architecture discussion/issue links become explicit reference-only Decisions with generated titles and `source="architecture-reference"`; no remote discussion text or status is claimed. PR breaking Decisions use `id="pr-breaking:<number>"`, `status="reported"`, and `source="pr-breaking"`.
 
@@ -45,7 +52,7 @@ Manifest owners beginning `@org/team` create `Team {handle: "org/team"}`; other 
 
 ## Loading and Queries
 
-The loader deletes only its selected graph name, recreates it, creates range indexes on `Person.login`, `Team.handle`, `Module.key`, `PR.number`, and `Decision.id`, then writes sorted `UNWIND $rows` batches of 750 by default. Node endpoints are matched separately before relationship `MERGE`; this avoids the full-path `MERGE` behavior that can duplicate partially matched endpoints. Every data value is passed as a query parameter. Reads use the official Python client's `ro_query` (`GRAPH.RO_QUERY`).
+The loader deletes only its selected graph name, recreates it, creates range indexes on `Person.login`, `Team.handle`, `Module.key`, `PR.number`, `Decision.id`, `Task.id`, and `Episode.id`, then writes sorted `UNWIND $rows` batches of 750 by default. Node endpoints are matched separately before relationship `MERGE`; this avoids the full-path `MERGE` behavior that can duplicate partially matched endpoints. Every data value is passed as a query parameter. Reads use the official Python client's `ro_query` (`GRAPH.RO_QUERY`).
 
 Rebuild is intentionally destructive and deterministic: rerunning the loader deletes and recreates only the chosen graph from the current local caches. It is not an incremental loader; retain or back up a graph under a different graph name before rebuilding if needed. Use `--graph` to select a tenant graph.
 
@@ -54,3 +61,9 @@ The current public-data rebuild parsed 8,794 source files with AST, recovered im
 The loader prints node/edge counts, dependency-source counts, source scan counts, the three most common syntax errors, and elapsed load time, then runs its six read-only verification query groups. The zero-owner query is restricted to integration keys from parsed manifests, excluding test-only/path-inferred modules. It explicitly aliases and references relationships in aggregates because FalkorDB optimizes relationship matching when an edge variable is unused.
 
 FalkorDB query compatibility was checked on temporary graphs. The variable-length reverse-dependency query must match paths to any `Module` and then filter with `target.key IN $module_keys`; binding an `UNWIND` alias inside the terminal node property map silently returned no rows. The bounded single-edge version, zero-owner verification, all nine relationship-loader templates, and evaluator queries returned their expected rows in the same audit. Regression coverage is in `tests/test_tool_base.py`.
+
+## Agent Coordination and Memory
+
+Three deterministic workflow agents call the existing reviewer, risk, and maintainer-loss tools. Each execution MERGEs a completed `Task`, a synthetic `Agent` claimant, and a `PRODUCED` `Episode`. Episode properties keep fact query IDs, exact parameters, extractors, and the original graph node/edge IDs; `USED_FACT` relationships point to the existing evidence nodes instead of copying evidence into process memory. `HistorianAgent` queries the latest persisted Episode for its login before writing a new one, so a second run can cite prior graph state. All coordination reads and writes use parameterized query IDs in `provenance/tools/queries.py`.
+
+The tenant demo copies selected Module nodes, dependency links between those modules, associated PRs/people, activity edges, and declared owners into two separate FalkorDB graphs. It runs the same deterministic router question and persists one Task/Episode per graph, then deletes both temporary graphs. The concurrency demo performs 20 independent Task/Episode writes to the selected existing graph and leaves those records in place.
