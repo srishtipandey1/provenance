@@ -70,6 +70,8 @@ INDEX_QUERIES = (
     "CREATE INDEX FOR (n:Module) ON (n.key)",
     "CREATE INDEX FOR (n:PR) ON (n.number)",
     "CREATE INDEX FOR (n:Decision) ON (n.id)",
+    "CREATE INDEX FOR (n:Task) ON (n.id)",
+    "CREATE INDEX FOR (n:Episode) ON (n.id)",
 )
 
 NODE_LOAD_QUERIES = {

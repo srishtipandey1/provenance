@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
@@ -60,6 +60,7 @@ class RoutedAnswer:
     tool_timings: list[dict[str, Any]]
     unsupported_message: str | None = None
     tampered_fact_id: str | None = None
+    tool_results: list[ToolResult] = field(default_factory=list)
 
 
 class _MissingReusableTool(RuntimeError):
@@ -571,16 +572,34 @@ def run_question(
         else:
             message = _decision_claim(graph, question, results, timings, claims)
     except _MissingReusableTool as error:
-        return RoutedAnswer(question, None, timings, unsupported_message=str(error))
+        return RoutedAnswer(
+            question,
+            None,
+            timings,
+            unsupported_message=str(error),
+            tool_results=results,
+        )
 
     if message:
-        return RoutedAnswer(question, None, timings, unsupported_message=message)
+        return RoutedAnswer(
+            question,
+            None,
+            timings,
+            unsupported_message=message,
+            tool_results=results,
+        )
     draft = AnswerDraft(question=question, claims=claims, tool_results=results)
     tampered_fact_id = _tamper_draft(draft, tamper_n) if tamper_n is not None else None
     started = time.perf_counter()
     answer = verify(draft, graph)
     timings.append({"tool": "verify", "seconds": round(time.perf_counter() - started, 4)})
-    return RoutedAnswer(question, answer, timings, tampered_fact_id=tampered_fact_id)
+    return RoutedAnswer(
+        question,
+        answer,
+        timings,
+        tampered_fact_id=tampered_fact_id,
+        tool_results=results,
+    )
 
 
 def _tamper_draft(draft: AnswerDraft, number: int) -> str:

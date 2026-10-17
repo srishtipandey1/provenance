@@ -2,6 +2,213 @@ from __future__ import annotations
 
 
 QUERY_REGISTRY: dict[str, str] = {
+    "coordination.task.write@1": """
+        MERGE (task:Task {id: $task_id})
+        ON CREATE SET task.created_ts = $created_ts
+        SET task.kind = $kind, task.status = $status, task.updated_ts = $updated_ts
+        MERGE (agent:Agent {name: $agent_name})
+        MERGE (task)-[:CLAIMED_BY]->(agent)
+        RETURN task.id
+    """,
+    "coordination.schema.indexes@1": """
+        CALL db.indexes() YIELD label, properties
+        RETURN label, properties
+    """,
+    "coordination.episode.write@1": """
+        MATCH (task:Task {id: $task_id})
+        MERGE (episode:Episode {id: $episode_id})
+        SET episode.agent_name = $agent_name, episode.subject = $subject,
+            episode.question = $question, episode.answer_summary = $answer_summary,
+            episode.ts = $ts, episode.evidence_node_ids = $node_ids,
+            episode.evidence_edge_ids = $edge_ids, episode.facts_json = $facts_json
+        MERGE (task)-[:PRODUCED]->(episode)
+        RETURN episode.id
+    """,
+    "coordination.task.depends_on@1": """
+        MATCH (task:Task {id: $task_id})
+        MATCH (dependency:Task {id: $depends_on_task_id})
+        WHERE task.id <> dependency.id
+        MERGE (task)-[:DEPENDS_ON]->(dependency)
+        RETURN task.id, dependency.id
+    """,
+    "coordination.task.exists@1": """
+        MATCH (task:Task {id: $task_id})
+        RETURN task.id
+    """,
+    "coordination.task.complete@1": """
+        MATCH (task:Task {id: $task_id})
+        SET task.status = 'completed', task.updated_ts = $updated_ts
+        RETURN task.id
+    """,
+    "coordination.episode.used_fact@1": """
+        MATCH (episode:Episode {id: $episode_id})
+        MATCH (evidence) WHERE id(evidence) IN $node_ids
+        MERGE (episode)-[:USED_FACT {node_id: id(evidence)}]->(evidence)
+        RETURN id(evidence)
+    """,
+    "coordination.episode.latest_subject@1": """
+        MATCH (episode:Episode {agent_name: $agent_name, subject: $subject})
+        RETURN episode.id, episode.answer_summary, episode.ts
+        ORDER BY episode.ts DESC
+        LIMIT 1
+    """,
+    "coordination.episode.by_id@1": """
+        MATCH (episode:Episode {id: $episode_id})
+        RETURN episode.facts_json, episode.evidence_node_ids,
+               episode.evidence_edge_ids
+    """,
+    "coordination.episode.used_fact_count@1": """
+        MATCH (episode:Episode {id: $episode_id})-[:USED_FACT]->(evidence)
+        RETURN count(evidence)
+    """,
+    "coordination.graph.tasks@1": """
+        MATCH (task:Task)
+        OPTIONAL MATCH (task)-[:CLAIMED_BY]->(agent:Agent)
+        OPTIONAL MATCH (task)-[:PRODUCED]->(episode:Episode)
+        OPTIONAL MATCH (task)-[:DEPENDS_ON]->(dependency:Task)
+        RETURN task.id, task.kind, task.status, agent.name, episode.id,
+               episode.answer_summary, dependency.id,
+               episode.evidence_node_ids, episode.evidence_edge_ids
+        ORDER BY task.created_ts, task.id
+    """,
+    "coordination.graph.task_count@1": """
+        MATCH (task:Task)
+        RETURN count(task)
+    """,
+    "coordination.tenant.modules@1": """
+        MATCH (module:Module)
+        WHERE module.key IN $module_keys
+        RETURN module.key, module.kind, module.name
+        ORDER BY module.key
+    """,
+    "coordination.tenant.dependencies@1": """
+        MATCH (source:Module)-[edge:DEPENDS_ON]->(target:Module)
+        WHERE source.key IN $module_keys AND target.key IN $module_keys
+        RETURN source.key, source.kind, source.name, target.key, target.kind,
+               target.name, edge.kind
+        ORDER BY source.key, target.key, edge.kind
+    """,
+    "coordination.tenant.activity@1": """
+        MATCH (person:Person)-[activity:AUTHORED]->(pr:PR)-[:TOUCHES]->(module:Module)
+        WHERE module.key IN $module_keys
+        RETURN person.login AS login, person.is_bot AS is_bot,
+               pr.number AS pr_number, pr.title AS title, pr.merged_ts AS merged_ts,
+               pr.additions AS additions, pr.deletions AS deletions, pr.body AS body,
+               module.key AS module_key, 'AUTHORED' AS activity_type,
+               activity.ts AS activity_ts, activity.role AS role, activity.state AS state
+        UNION ALL
+        MATCH (person:Person)-[activity:REVIEWED]->(pr:PR)-[:TOUCHES]->(module:Module)
+        WHERE module.key IN $module_keys
+        RETURN person.login AS login, person.is_bot AS is_bot,
+               pr.number AS pr_number, pr.title AS title, pr.merged_ts AS merged_ts,
+               pr.additions AS additions, pr.deletions AS deletions, pr.body AS body,
+               module.key AS module_key, 'REVIEWED' AS activity_type,
+               activity.ts AS activity_ts, activity.role AS role, activity.state AS state
+    """,
+    "coordination.tenant.person_owners@1": """
+        MATCH (owner:Person)-[:DECLARED_OWNER]->(module:Module)
+        WHERE module.key IN $module_keys
+        RETURN owner.login, owner.is_bot, module.key
+    """,
+    "coordination.tenant.team_owners@1": """
+        MATCH (owner:Team)-[:DECLARED_OWNER]->(module:Module)
+        WHERE module.key IN $module_keys
+        RETURN owner.handle, module.key
+    """,
+    "coordination.tenant.copy.modules@1": """
+        UNWIND $rows AS row
+        MERGE (module:Module {key: row.key})
+        SET module.kind = row.kind, module.name = row.name
+        RETURN count(module)
+    """,
+    "coordination.tenant.copy.people@1": """
+        UNWIND $rows AS row
+        MERGE (person:Person {login: row.login})
+        SET person.is_bot = row.is_bot
+        RETURN count(person)
+    """,
+    "coordination.tenant.copy.teams@1": """
+        UNWIND $rows AS row
+        MERGE (team:Team {handle: row.handle})
+        RETURN count(team)
+    """,
+    "coordination.tenant.copy.prs@1": """
+        UNWIND $rows AS row
+        MERGE (pr:PR {number: row.number})
+        SET pr.title = row.title, pr.merged_ts = row.merged_ts,
+            pr.additions = row.additions, pr.deletions = row.deletions,
+            pr.body = row.body
+        RETURN count(pr)
+    """,
+    "coordination.tenant.copy.touches@1": """
+        UNWIND $rows AS row
+        MATCH (pr:PR {number: row.pr_number})
+        MATCH (module:Module {key: row.module_key})
+        MERGE (pr)-[:TOUCHES]->(module)
+        RETURN count(pr)
+    """,
+    "coordination.tenant.copy.authored@1": """
+        UNWIND $rows AS row
+        MATCH (person:Person {login: row.login})
+        MATCH (pr:PR {number: row.pr_number})
+        MERGE (person)-[edge:AUTHORED]->(pr)
+        SET edge.ts = row.ts, edge.role = row.role, edge.state = row.state
+        RETURN count(person)
+    """,
+    "coordination.tenant.copy.person_owners@1": """
+        UNWIND $rows AS row
+        MATCH (owner:Person {login: row.login})
+        MATCH (module:Module {key: row.module_key})
+        MERGE (owner)-[:DECLARED_OWNER]->(module)
+        RETURN count(owner)
+    """,
+    "coordination.tenant.copy.team_owners@1": """
+        UNWIND $rows AS row
+        MATCH (owner:Team {handle: row.handle})
+        MATCH (module:Module {key: row.module_key})
+        MERGE (owner)-[:DECLARED_OWNER]->(module)
+        RETURN count(owner)
+    """,
+    "coordination.tenant.copy.reviewed@1": """
+        UNWIND $rows AS row
+        MATCH (person:Person {login: row.login})
+        MATCH (pr:PR {number: row.pr_number})
+        MERGE (person)-[edge:REVIEWED]->(pr)
+        SET edge.ts = row.ts, edge.role = row.role, edge.state = row.state
+        RETURN count(person)
+    """,
+    "coordination.tenant.copy.dependencies@1": """
+        UNWIND $rows AS row
+        MATCH (source:Module {key: row.source_key})
+        MATCH (target:Module {key: row.target_key})
+        MERGE (source)-[:DEPENDS_ON {kind: row.kind}]->(target)
+        RETURN count(source)
+    """,
+    "coordination.demo.sample@1": """
+        MATCH (person:Person)-[:AUTHORED]->(pr:PR)-[:TOUCHES]->(module:Module)
+        WHERE person.is_bot = false AND module.kind = 'integration'
+        RETURN pr.number, module.key, person.login
+        ORDER BY pr.merged_ts DESC
+        LIMIT 1
+    """,
+    "coordination.tenant.index.module@1": """
+        CREATE INDEX FOR (module:Module) ON (module.key)
+    """,
+    "coordination.tenant.index.person@1": """
+        CREATE INDEX FOR (person:Person) ON (person.login)
+    """,
+    "coordination.tenant.index.team@1": """
+        CREATE INDEX FOR (team:Team) ON (team.handle)
+    """,
+    "coordination.tenant.index.pr@1": """
+        CREATE INDEX FOR (pr:PR) ON (pr.number)
+    """,
+    "coordination.tenant.index.task@1": """
+        CREATE INDEX FOR (task:Task) ON (task.id)
+    """,
+    "coordination.tenant.index.episode@1": """
+        CREATE INDEX FOR (episode:Episode) ON (episode.id)
+    """,
     "meta.graph_bounds@1": """
         MATCH (pr:PR)
         RETURN min(pr.merged_ts), max(pr.merged_ts)
